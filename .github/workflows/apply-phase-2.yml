@@ -1,0 +1,593 @@
+name: Apply Phase 2 artifacts
+
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create branch feature/phase-2-multiclient
+        run: |
+          git checkout -b feature/phase-2-multiclient
+
+      - name: Add SQL migration
+        run: |
+          cat > sql/migrations/2025-12-14_multi_tenant_and_stripe.sql <<'EOF'
+-- Migration: add organizations, user_memberships, add client_id to contact_submissions, and Stripe-related table
+-- Run with service_role in Supabase SQL editor
+
+create extension if not exists "pgcrypto";
+
+-- organizations / clients
+create table if not exists public.clients (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  stripe_customer_id text,
+  subscription_status text,
+  subscription_current_period_end timestamptz,
+  created_at timestamptz default now()
+);
+
+-- user_memberships: links users to clients with roles
+create table if not exists public.user_memberships (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) not null,
+  client_id uuid references public.clients(id) not null,
+  role text not null default 'agent', -- owner, admin, agent
+  created_at timestamptz default now()
+);
+
+-- ensure contact_submissions has client_id for tenancy
+alter table public.contact_submissions add column if not exists client_id uuid;
+
+-- RLS: enable on clients and user_memberships if not already
+alter table public.clients enable row level security;
+alter table public.user_memberships enable row level security;
+
+-- RLS policies for user_memberships: only members can see their membership
+create policy "members can select memberships" on public.user_memberships
+  for select
+  using ( exists (select 1 from public.user_memberships um where um.user_id = auth.uid() and um.client_id = client_id) );
+
+-- RLS for contact_submissions: anyone can INSERT, but SELECT/UPDATE/DELETE limited to membership and roles
+create policy "Allow public insert" on public.contact_submissions
+  for insert
+  using ( true )
+  with check ( true );
+
+create policy "Members can select their client submissions" on public.contact_submissions
+  for select
+  using (
+    exists (
+      select 1 from public.user_memberships um
+      where um.user_id = auth.uid() and um.client_id = client_id
+    )
+  );
+
+create policy "Members can update if role in ('admin','owner')" on public.contact_submissions
+  for update
+  using (
+    exists (
+      select 1 from public.user_memberships um
+      where um.user_id = auth.uid() and um.client_id = client_id and um.role in ('admin','owner')
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.user_memberships um2
+      where um2.user_id = auth.uid() and um2.client_id = client_id and um2.role in ('admin','owner')
+    )
+  );
+
+create policy "Members can delete if role in ('admin','owner')" on public.contact_submissions
+  for delete
+  using (
+    exists (
+      select 1 from public.user_memberships um
+      where um.user_id = auth.uid() and um.client_id = client_id and um.role in ('admin','owner')
+    )
+  );
+
+-- RLS for clients: members can select their client
+create policy "Members can select client" on public.clients
+  for select
+  using (
+    exists (
+      select 1 from public.user_memberships um
+      where um.user_id = auth.uid() and um.client_id = id
+    )
+  );
+
+-- Optional: table to store stripe webhook events for auditing
+create table if not exists public.stripe_events (
+  id uuid primary key default gen_random_uuid(),
+  event_id text,
+  payload jsonb,
+  created_at timestamptz default now()
+);
+EOF
+
+      - name: Add Stripe create-checkout-session endpoint
+        run: |
+          mkdir -p api/stripe
+          cat > api/stripe/create-checkout-session.ts <<'EOF'
+import type { NextApiRequest, NextApiResponse } from 'next';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2022-11-15' });
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') return res.status(405).send('Method not allowed');
+  try {
+    const { priceId, clientId, successUrl, cancelUrl } = req.body;
+    if (!priceId || !clientId) return res.status(400).json({ error: 'Missing priceId or clientId' });
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{ price: priceId, quantity: 1 }],
+      metadata: { clientId },
+      success_url: successUrl || `${req.headers.origin}/dashboard?session=success`,
+      cancel_url: cancelUrl || `${req.headers.origin}/pricing`,
+    });
+
+    return res.status(200).json({ url: session.url });
+  } catch (err: any) {
+    console.error('create-checkout-session error', err);
+    return res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+}
+EOF
+
+      - name: Add Stripe customer-portal endpoint
+        run: |
+          cat > api/stripe/customer-portal.ts <<'EOF'
+import type { NextApiRequest, NextApiResponse } from 'next';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2022-11-15' });
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') return res.status(405).send('Method not allowed');
+  try {
+    const { customerId, returnUrl } = req.body;
+    if (!customerId) return res.status(400).json({ error: 'Missing customerId' });
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: returnUrl || `${req.headers.origin}/dashboard`,
+    });
+    return res.status(200).json({ url: session.url });
+  } catch (err: any) {
+    console.error('customer-portal error', err);
+    return res.status(500).json({ error: 'Failed to create billing portal session' });
+  }
+}
+EOF
+
+      - name: Add Stripe webhook endpoint
+        run: |
+          cat > api/stripe/webhook.ts <<'EOF'
+import type { NextApiRequest, NextApiResponse } from 'next';
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2022-11-15' });
+const supabaseService = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '');
+
+export const config = { api: { bodyParser: false } } as const;
+
+import getRawBody from 'raw-body';
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') return res.status(405).send('Method not allowed');
+  const sig = req.headers['stripe-signature'] as string | undefined;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+  let event: Stripe.Event;
+  try {
+    const buf = await getRawBody(req as any);
+    event = stripe.webhooks.constructEvent(buf, sig || '', webhookSecret);
+  } catch (err: any) {
+    console.error('Webhook signature verification failed.', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Persist event for audit
+  try {
+    await supabaseService.from('stripe_events').insert([{ event_id: event.id, payload: event }]);
+  } catch (err) {
+    console.error('Failed to persist stripe event', err);
+  }
+
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const customerId = session.customer as string | undefined;
+        const clientId = session.metadata?.clientId;
+        // save customerId on clients table
+        if (clientId && customerId) {
+          await supabaseService.from('clients').update({ stripe_customer_id: customerId }).eq('id', clientId);
+        }
+        break;
+      }
+      case 'customer.subscription.updated':
+      case 'customer.subscription.created':
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+        // find client by stripe_customer_id
+        const { data: client } = await supabaseService.from('clients').select('id').eq('stripe_customer_id', customerId).limit(1).single();
+        if (client) {
+          const clientId = (client as any).id;
+          const status = subscription.status;
+          const current_period_end = new Date((subscription.current_period_end || 0) * 1000).toISOString();
+          await supabaseService.from('clients').update({ subscription_status: status, subscription_current_period_end: current_period_end }).eq('id', clientId);
+        }
+        break;
+      }
+      default:
+        // handle other events as needed
+        break;
+    }
+  } catch (err) {
+    console.error('Error handling stripe event', err);
+  }
+
+  res.status(200).json({ received: true });
+}
+EOF
+
+      - name: Add secure admin endpoints
+        run: |
+          mkdir -p api/admin/submission
+          cat > api/admin/submission/delete.ts <<'EOF'
+import { createClient } from '@supabase/supabase-js';
+import type { NextApiRequest, NextApiResponse } from 'next';
+
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseService = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+async function getUserIdFromToken(token?: string | null) {
+  if (!token) return null;
+  try {
+    const { data, error } = await supabaseService.auth.getUser({ access_token: token } as any);
+    if (error) {
+      console.error('getUser error', error);
+      return null;
+    }
+    return data?.user?.id ?? null;
+  } catch (err) {
+    console.error('Failed to get user from token', err);
+    return null;
+  }
+}
+
+async function isAdminOrOwner(userId: string | null, clientId?: string) {
+  if (!userId || !clientId) return false;
+  try {
+    // check membership role for this client
+    const { data: membership } = await supabaseService
+      .from('user_memberships')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('client_id', clientId)
+      .limit(1)
+      .single();
+    if (membership && ['owner','admin'].includes(membership.role)) return true;
+    return false;
+  } catch (err) {
+    console.error('isAdminOrOwner error', err);
+    return false;
+  }
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'DELETE') return res.status(405).json({ error: 'Method not allowed' });
+
+  const authHeader = (req.headers.authorization as string) || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const userId = await getUserIdFromToken(token);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized: invalid token' });
+
+  const id = (req.query.id as string) || (req.body && req.body.id);
+  if (!id) return res.status(400).json({ error: 'Missing submission id' });
+
+  // fetch submission to get client_id
+  const { data: submission, error: fetchErr } = await supabaseService.from('contact_submissions').select('client_id').eq('id', id).limit(1).single();
+  if (fetchErr || !submission) {
+    console.error('Failed to fetch submission', fetchErr);
+    return res.status(404).json({ error: 'Submission not found' });
+  }
+  const clientId = (submission as any).client_id;
+
+  const allowed = await isAdminOrOwner(userId, clientId);
+  if (!allowed) return res.status(403).json({ error: 'Forbidden: requires admin/owner' });
+
+  try {
+    const { error } = await supabaseService.from('contact_submissions').delete().eq('id', id);
+    if (error) {
+      console.error('Delete error', error);
+      return res.status(500).json({ error: 'Failed to delete submission' });
+    }
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('Unhandled delete error', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+EOF
+
+          cat > api/admin/submission/mark-responded.ts <<'EOF'
+import { createClient } from '@supabase/supabase-js';
+import type { NextApiRequest, NextApiResponse } from 'next';
+
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseService = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+async function getUserIdFromToken(token?: string | null) {
+  if (!token) return null;
+  try {
+    const { data, error } = await supabaseService.auth.getUser({ access_token: token } as any);
+    if (error) {
+      console.error('getUser error', error);
+      return null;
+    }
+    return data?.user?.id ?? null;
+  } catch (err) {
+    console.error('Failed to get user from token', err);
+    return null;
+  }
+}
+
+async function isAdminOrOwner(userId: string | null, clientId?: string) {
+  if (!userId || !clientId) return false;
+  try {
+    // check membership role for this client
+    const { data: membership } = await supabaseService
+      .from('user_memberships')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('client_id', clientId)
+      .limit(1)
+      .single();
+    if (membership && ['owner','admin'].includes(membership.role)) return true;
+    return false;
+  } catch (err) {
+    console.error('isAdminOrOwner error', err);
+    return false;
+  }
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const authHeader = (req.headers.authorization as string) || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const userId = await getUserIdFromToken(token);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized: invalid token' });
+
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'Missing submission id' });
+
+  // fetch submission to get client_id
+  const { data: submission, error: fetchErr } = await supabaseService.from('contact_submissions').select('client_id').eq('id', id).limit(1).single();
+  if (fetchErr || !submission) {
+    console.error('Failed to fetch submission', fetchErr);
+    return res.status(404).json({ error: 'Submission not found' });
+  }
+  const clientId = (submission as any).client_id;
+
+  const allowed = await isAdminOrOwner(userId, clientId);
+  if (!allowed) return res.status(403).json({ error: 'Forbidden: requires admin/owner' });
+
+  try {
+    const { error } = await supabaseService
+      .from('contact_submissions')
+      .update({ status: 'responded', responded_at: new Date().toISOString(), responded_by: userId })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Mark responded error', error);
+      return res.status(500).json({ error: 'Failed to mark responded' });
+    }
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('Unhandled mark responded error', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+EOF
+
+      - name: Update Admin Inbox component
+        run: |
+          mkdir -p src/components/Admin
+          cat > src/components/Admin/Inbox.tsx <<'EOF'
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabaseClient';
+import ReplyModal from './ReplyModal';
+import { useAuth } from '@/hooks/useAuth';
+
+type Submission = {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  created_at: string;
+  status?: 'unread' | 'responded';
+  responded_at?: string | null;
+  responded_by?: string | null;
+  client_id?: string | null;
+};
+
+export default function Inbox() {
+  const [rows, setRows] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<Submission | null>(null);
+  const [replyOpen, setReplyOpen] = useState(false);
+  const { accessToken } = useAuth(); // use token to call secure endpoints
+
+  async function fetchRows() {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from<Submission>('contact_submissions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setRows(data ?? []);
+    } catch (err) {
+      console.error('Failed to fetch submissions', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchRows();
+  }, []);
+
+  async function handleDelete(id: string) {
+    if (!confirm('Delete this submission?')) return;
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+      const res = await fetch(`/api/admin/submission/delete?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Status ${res.status}`);
+      }
+      setRows(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      console.error('Delete failed', err);
+      alert('Delete failed. See console for details.');
+    }
+  }
+
+  async function markResponded(id: string) {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+      const res = await fetch('/api/admin/submission/mark-responded', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Status ${res.status}`);
+      }
+      // refresh rows after update
+      await fetchRows();
+    } catch (err) {
+      console.error('Mark responded failed', err);
+      alert('Mark responded failed. See console for details.');
+    }
+  }
+
+  function openReply(row: Submission) {
+    setSelected(row);
+    setReplyOpen(true);
+  }
+
+  async function onReplySent() {
+    setReplyOpen(false);
+    setSelected(null);
+    await fetchRows();
+  }
+
+  return (
+    <section>
+      {loading && <div>Loading…</div>}
+      {!loading && rows.length === 0 && <div>No submissions yet.</div>}
+      {!loading && rows.length > 0 && (
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Message</th>
+              <th>Created</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.id}>
+                <td>{r.name}</td>
+                <td>{r.email}</td>
+                <td style={{ maxWidth: 360, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.message}</td>
+                <td>{new Date(r.created_at).toLocaleString()}</td>
+                <td>{r.status ?? 'unread'}</td>
+                <td>
+                  <button onClick={() => { setSelected(r); alert(r.message); }}>View</button>
+                  <button onClick={() => openReply(r)}>Reply</button>
+                  <button onClick={() => markResponded(r.id)}>Mark responded</button>
+                  <button onClick={() => handleDelete(r.id)}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {replyOpen && selected && (
+        <ReplyModal submission={selected} onClose={() => setReplyOpen(false)} onSent={onReplySent} />
+      )}
+    </section>
+  );
+}
+EOF
+
+      - name: Add STRIPE_SETUP docs
+        run: |
+          mkdir -p docs
+          cat > docs/STRIPE_SETUP.md <<'EOF'
+# Stripe setup & env vars
+
+Required env vars:
+- STRIPE_SECRET_KEY
+- STRIPE_PUBLISHABLE_KEY
+- STRIPE_WEBHOOK_SECRET
+- STRIPE_PRICE_STARTER
+- STRIPE_PRICE_PRO
+- STRIPE_PRICE_ENTERPRISE
+
+Steps:
+1. Create products & prices in Stripe for Starter/Pro/Enterprise.
+2. Copy the Price IDs to STRIPE_PRICE_STARTER, STRIPE_PRICE_PRO, STRIPE_PRICE_ENTERPRISE in your deployment environment.
+3. Configure STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY.
+4. Create a webhook in Stripe pointing to /api/stripe/webhook and copy the webhook secret to STRIPE_WEBHOOK_SECRET.
+5. Deploy the app and confirm the webhook is reachable.
+EOF
+
+      - name: Commit and push changes
+        run: |
+          git add .
+          git commit -m "feat(multiclient+stripe): add multi-tenant migrations and stripe integration endpoints and secure admin endpoints"
+          git push --set-upstream origin feature/phase-2-multiclient
+
+      - name: Output result
+        run: |
+          echo "Branch feature/phase-2-multiclient created and files added. If push failed, check action logs."
