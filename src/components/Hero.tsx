@@ -1,7 +1,12 @@
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
+import DemoModal from "./DemoModal";
+import { useAuth } from "@/hooks/useAuth";
 
 const Hero = () => {
+  const { user } = useAuth();
+
   return (
     <section className="relative min-h-screen flex items-center justify-center gradient-hero overflow-hidden">
       {/* Animated background elements */}
@@ -37,13 +42,13 @@ const Hero = () => {
 
           {/* CTA Buttons */}
           <div className="animate-fade-up-delay-3 flex flex-col sm:flex-row gap-4 pt-4">
-            <Button variant="hero" size="xl">
-              Get Started Free
-              <ArrowRight className="w-5 h-5" />
-            </Button>
-            <Button variant="heroOutline" size="xl">
-              Watch Demo
-            </Button>
+            <Link to={user ? "/dashboard" : "/auth"}>
+              <Button variant="hero" size="xl">
+                {user ? "Go to Dashboard" : "Get Started Free"}
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+            </Link>
+            <DemoModal />
           </div>
 
           {/* Trust badge */}
