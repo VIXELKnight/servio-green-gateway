@@ -1,131 +1,96 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { Send } from "lucide-react";
+import React, { useState } from 'react';
+import { z } from 'zod';
+import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-const Contact = () => {
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    message: "",
-  });
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const contactSchema = z.object({
+  name: z.string().min(1, { message: 'Please enter your name.' }).max(64, { message: 'Name must be 64 characters or fewer.' }),
+  email: z.string().email({ message: 'Please enter a valid email address.' }).max(254, { message: 'Email is too long.' }),
+  message: z.string().min(10, { message: 'Message must be at least 10 characters.' }).max(1000, { message: 'Message is too long (max 1000).' })
+});
+
+type ContactForm = z.infer<typeof contactSchema>;
+
+export default function Contact() {
+  const [form, setForm] = useState<ContactForm>({ name: '', email: '', message: '' });
+  const [errors, setErrors] = useState<Partial<Record<keyof ContactForm, string>>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+    setErrors(prev => ({ ...prev, [name]: undefined }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setIsSubmitting(true);
+    setServerError(null);
+    setSuccessMessage(null);
 
-    try {
-      const { error } = await supabase.from("contact_submissions").insert({
-        name: formData.name,
-        email: formData.email,
-        message: formData.message,
+    const parsed = contactSchema.safeParse(form);
+    if (!parsed.success) {
+      const fieldErrors: Partial<Record<keyof ContactForm, string>> = {};
+      parsed.error.errors.forEach(err => {
+        const key = err.path[0] as keyof ContactForm | undefined;
+        if (key) fieldErrors[key] = err.message;
       });
-
-      if (error) throw error;
-
-      toast({
-        title: "Message sent!",
-        description: "We'll get back to you as soon as possible.",
-      });
-
-      setFormData({ name: "", email: "", message: "" });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to send message. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
+      setErrors(fieldErrors);
+      return;
     }
-  };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-  };
+    setSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('contact_submissions')
+        .insert([{ name: form.name.trim(), email: form.email.trim(), message: form.message.trim() }]);
+
+      if (error) {
+        console.error('Supabase insert error:', error);
+        setServerError('Failed to submit the form. Please try again later.');
+      } else {
+        setSuccessMessage('Thanks — your message has been submitted!');
+        setForm({ name: '', email: '', message: '' });
+      }
+    } catch (err) {
+      console.error(err);
+      setServerError('An unexpected error occurred.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
-    <section id="contact" className="py-24 md:py-32 bg-background">
-      <div className="container px-4 md:px-6">
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="text-sm font-semibold text-primary uppercase tracking-wider">Contact</span>
-          <h2 className="mt-4 text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
-            Get in
-            <span className="text-gradient"> Touch</span>
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
-          </p>
-        </div>
-
-        {/* Contact Form */}
-        <div className="max-w-xl mx-auto">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <Input
-                type="text"
-                name="name"
-                placeholder="Your Name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                className="h-12 px-4 bg-card border-border focus:border-primary focus:ring-primary/20 transition-all duration-300"
-              />
-            </div>
-
-            <div>
-              <Input
-                type="email"
-                name="email"
-                placeholder="Your Email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="h-12 px-4 bg-card border-border focus:border-primary focus:ring-primary/20 transition-all duration-300"
-              />
-            </div>
-
-            <div>
-              <Textarea
-                name="message"
-                placeholder="Your Message"
-                value={formData.message}
-                onChange={handleChange}
-                required
-                rows={5}
-                className="px-4 py-3 bg-card border-border focus:border-primary focus:ring-primary/20 transition-all duration-300 resize-none"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                "Sending..."
-              ) : (
-                <>
-                  Send Message
-                  <Send className="w-4 h-4" />
-                </>
-              )}
-            </Button>
-          </form>
-        </div>
+    <form onSubmit={handleSubmit} noValidate>
+      <div>
+        <label htmlFor="name">Name</label>
+        <input id="name" name="name" value={form.name} onChange={handleChange} maxLength={64} />
+        {errors.name && <p role="alert" style={{ color: 'red' }}>{errors.name}</p>}
       </div>
-    </section>
-  );
-};
 
-export default Contact;
+      <div>
+        <label htmlFor="email">Email</label>
+        <input id="email" name="email" type="email" value={form.email} onChange={handleChange} maxLength={254} />
+        {errors.email && <p role="alert" style={{ color: 'red' }}>{errors.email}</p>}
+      </div>
+
+      <div>
+        <label htmlFor="message">Message</label>
+        <textarea id="message" name="message" value={form.message} onChange={handleChange} rows={8} maxLength={1000} />
+        {errors.message && <p role="alert" style={{ color: 'red' }}>{errors.message}</p>}
+      </div>
+
+      {serverError && <p role="alert" style={{ color: 'red' }}>{serverError}</p>}
+      {successMessage && <p role="status" style={{ color: 'green' }}>{successMessage}</p>}
+
+      <button type="submit" disabled={submitting}>
+        {submitting ? 'Sending…' : 'Send'}
+      </button>
+    </form>
+  );
+}
