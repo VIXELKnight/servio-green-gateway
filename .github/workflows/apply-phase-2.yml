@@ -18,12 +18,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Create branch feature/phase-2-multiclient
+      - name: Create or switch to branch feature/phase-2-multiclient
         run: |
-          git checkout -b feature/phase-2-multiclient
+          git fetch origin
+          if git rev-parse --verify feature/phase-2-multiclient >/dev/null 2>&1; then
+            git checkout feature/phase-2-multiclient
+            git reset --hard origin/feature/phase-2-multiclient || true
+          else
+            git checkout -b feature/phase-2-multiclient
+          fi
 
       - name: Add SQL migration
         run: |
+          mkdir -p sql/migrations
           cat > sql/migrations/2025-12-14_multi_tenant_and_stripe.sql <<'EOF'
 -- Migration: add organizations, user_memberships, add client_id to contact_submissions, and Stripe-related table
 -- Run with service_role in Supabase SQL editor
@@ -585,9 +592,9 @@ EOF
       - name: Commit and push changes
         run: |
           git add .
-          git commit -m "feat(multiclient+stripe): add multi-tenant migrations and stripe integration endpoints and secure admin endpoints"
-          git push --set-upstream origin feature/phase-2-multiclient
+          git commit -m "feat(multiclient+stripe): add multi-tenant migrations and stripe integration endpoints and secure admin endpoints" || echo "No changes to commit"
+          git push --set-upstream origin feature/phase-2-multiclient || echo "Push failed; check action logs"
 
-      - name: Output result
+      - name: Result
         run: |
-          echo "Branch feature/phase-2-multiclient created and files added. If push failed, check action logs."
+          echo "Done. If the push failed, inspect action logs for details."
