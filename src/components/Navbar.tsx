@@ -59,16 +59,17 @@ const Navbar = () => {
             
             {user ? (
               <div className="flex items-center gap-4">
-                <span className={`text-sm ${isScrolled ? "text-foreground" : "text-primary-foreground"}`}>
-                  {user.email}
-                </span>
+                <Link to="/dashboard">
+                  <Button variant={isScrolled ? "outline" : "heroOutline"} size="sm">
+                    Dashboard
+                  </Button>
+                </Link>
                 <Button
-                  variant={isScrolled ? "outline" : "heroOutline"}
+                  variant={isScrolled ? "ghost" : "heroOutline"}
                   size="sm"
                   onClick={signOut}
                 >
                   <LogOut className="w-4 h-4" />
-                  Sign Out
                 </Button>
               </div>
             ) : (
@@ -109,6 +110,11 @@ const Navbar = () => {
               ))}
               {user ? (
                 <>
+                  <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Button variant="default" size="sm" className="w-full mb-2">
+                      Dashboard
+                    </Button>
+                  </Link>
                   <span className="text-sm text-muted-foreground">{user.email}</span>
                   <Button variant="outline" size="sm" onClick={signOut}>
                     <LogOut className="w-4 h-4" />
