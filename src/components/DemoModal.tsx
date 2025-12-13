@@ -7,7 +7,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Play, X } from "lucide-react";
+import { Play } from "lucide-react";
+import demoThumbnail from "@/assets/demo-thumbnail.jpg";
 
 interface DemoModalProps {
   trigger?: React.ReactNode;
@@ -15,9 +16,17 @@ interface DemoModalProps {
 
 const DemoModal = ({ trigger }: DemoModalProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const handlePlay = () => {
+    setIsPlaying(true);
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open);
+      if (!open) setIsPlaying(false);
+    }}>
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="heroOutline" size="xl">
@@ -34,32 +43,43 @@ const DemoModal = ({ trigger }: DemoModalProps) => {
         </DialogHeader>
         
         <div className="p-6">
-          {/* Video placeholder - replace with actual video embed */}
+          {/* Video player */}
           <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center">
-                <Play className="w-10 h-10 text-primary" />
-              </div>
-              <p className="text-muted-foreground text-lg font-medium">
-                Demo Video Coming Soon
-              </p>
-              <p className="text-muted-foreground/70 text-sm max-w-md text-center">
-                Our product demo showcasing AI-powered customer support automation, 
-                intelligent inbox management, and seamless integrations.
-              </p>
-            </div>
-            
-            {/* Decorative elements */}
-            <div className="absolute top-4 left-4 w-3 h-3 rounded-full bg-destructive animate-pulse" />
-            <div className="absolute top-4 left-10 w-3 h-3 rounded-full bg-yellow-500" />
-            <div className="absolute top-4 left-16 w-3 h-3 rounded-full bg-primary" />
+            {isPlaying ? (
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0"
+                title="Servio Demo Video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <>
+                <img 
+                  src={demoThumbnail} 
+                  alt="Servio AI Demo" 
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <button 
+                    onClick={handlePlay}
+                    className="w-20 h-20 rounded-full bg-primary flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-primary/30"
+                  >
+                    <Play className="w-10 h-10 text-primary-foreground ml-1" fill="currentColor" />
+                  </button>
+                </div>
+                <div className="absolute bottom-4 left-4 text-white">
+                  <p className="text-sm font-medium opacity-80">2:34</p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Feature highlights */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             <div className="p-4 rounded-lg bg-muted/50 border border-border">
               <h4 className="font-semibold text-foreground mb-1">AI Inbox</h4>
-              <p className="text-sm text-muted-foreground">Smart email categorization & responses</p>
+              <p className="text-sm text-muted-foreground">Smart email categorization & auto-responses</p>
             </div>
             <div className="p-4 rounded-lg bg-muted/50 border border-border">
               <h4 className="font-semibold text-foreground mb-1">24/7 Support</h4>
