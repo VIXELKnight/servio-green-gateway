@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
 import { z } from 'zod';
-import { createClient } from '@supabase/supabase-js';
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
-const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '@/integrations/supabase/client';
 
 const contactSchema = z.object({
   name: z.string().min(1, { message: 'Please enter your name.' }).max(64, { message: 'Name must be 64 characters or fewer.' }),
