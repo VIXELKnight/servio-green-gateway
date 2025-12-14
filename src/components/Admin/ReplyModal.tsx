@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../../lib/supabaseClient';
 
 type Props = {
   submission: {
@@ -24,26 +25,32 @@ export default function ReplyModal({ submission, onClose, onSent }: Props) {
     }
     setSending(true);
     try {
-      const res = await fetch('/api/admin/reply', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const { data, error: fnError } = await supabase.functions.invoke('send-reply', {
+        body: {
           submissionId: submission.id,
           to_email: submission.email,
           subject: `Re: your message to us`,
           body: replyBody,
-        }),
+        },
       });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Status ${res.status}`);
+
+      if (fnError) {
+        throw new Error(fnError.message || 'Failed to send reply');
       }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       onSent();
     } catch (err: any) {
       console.error(err);
-      setError('Failed to send reply. See console for details.');
+      setError(err.message || 'Failed to send reply.');
     } finally {
       setSending(false);
     }

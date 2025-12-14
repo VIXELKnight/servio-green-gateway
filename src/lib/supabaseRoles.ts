@@ -11,7 +11,7 @@ export async function isAdmin(supabase: SupabaseClient, userId?: string): Promis
   const { data, error } = await supabase
     .from('user_roles')
     .select('role')
-    .eq('id', uid)
+    .eq('user_id', uid)
     .limit(1)
     .single();
 
@@ -22,5 +22,5 @@ export async function isAdmin(supabase: SupabaseClient, userId?: string): Promis
 export async function setRoleService(supabaseService: SupabaseClient, userId: string, role: 'admin' | 'user') {
   return supabaseService
     .from('user_roles')
-    .upsert({ id: userId, role }, { onConflict: 'id' });
+    .upsert({ user_id: userId, role }, { onConflict: 'user_id' });
 }
