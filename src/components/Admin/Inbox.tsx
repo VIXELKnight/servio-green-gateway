@@ -23,7 +23,7 @@ export default function Inbox() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from<Submission>('contact_submissions')
+        .from('contact_submissions')
         .select('*')
         .order('created_at', { ascending: false });
 
