@@ -161,6 +161,61 @@ export const useDashboardData = () => {
     }
   };
 
+  const updateTicket = async (ticketId: string, updates: { status?: string; priority?: string; title?: string; description?: string }) => {
+    if (!user) return false;
+
+    try {
+      const updateData: Record<string, unknown> = { ...updates };
+      
+      // If resolving, set resolved_at
+      if (updates.status === 'resolved') {
+        updateData.resolved_at = new Date().toISOString();
+      } else if (updates.status && updates.status !== 'resolved') {
+        updateData.resolved_at = null;
+      }
+
+      const { error } = await supabase
+        .from("support_tickets")
+        .update(updateData)
+        .eq("id", ticketId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      // Log activity
+      if (updates.status) {
+        await logActivity("ticket_updated", `Ticket status changed to ${updates.status}`, ticketId);
+      }
+
+      await fetchDashboardData();
+      return true;
+    } catch (error) {
+      console.error("Error updating ticket:", error);
+      return false;
+    }
+  };
+
+  const deleteTicket = async (ticketId: string) => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from("support_tickets")
+        .delete()
+        .eq("id", ticketId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      await logActivity("ticket_deleted", "Ticket deleted", ticketId);
+      await fetchDashboardData();
+      return true;
+    } catch (error) {
+      console.error("Error deleting ticket:", error);
+      return false;
+    }
+  };
+
   const logActivity = async (type: string, title: string, description?: string) => {
     if (!user) return;
 
@@ -250,6 +305,8 @@ export const useDashboardData = () => {
     tickets,
     isLoading,
     createTicket,
+    updateTicket,
+    deleteTicket,
     logActivity,
     updateStats,
     refreshData: fetchDashboardData,

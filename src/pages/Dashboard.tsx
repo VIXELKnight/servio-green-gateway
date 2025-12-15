@@ -4,11 +4,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { TicketManagement } from "@/components/Dashboard/TicketManagement";
 import { 
   LogOut, 
   Mail, 
@@ -21,19 +19,14 @@ import {
   Clock,
   CheckCircle2,
   ArrowRight,
-  Plus,
   RefreshCw
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 const Dashboard = () => {
   const { user, isLoading: authLoading, signOut, isSubscribed, currentPlan, subscriptionEnd } = useAuth();
-  const { stats, activities, tickets, isLoading: dataLoading, createTicket, refreshData } = useDashboardData();
+  const { stats, activities, tickets, isLoading: dataLoading, createTicket, updateTicket, deleteTicket, refreshData } = useDashboardData();
   const navigate = useNavigate();
-  const [newTicketOpen, setNewTicketOpen] = useState(false);
-  const [ticketTitle, setTicketTitle] = useState("");
-  const [ticketDescription, setTicketDescription] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -49,26 +42,6 @@ const Dashboard = () => {
     } catch (error) {
       console.error("Error opening customer portal:", error);
       toast.error("Failed to open subscription portal");
-    }
-  };
-
-  const handleCreateTicket = async () => {
-    if (!ticketTitle.trim()) {
-      toast.error("Please enter a ticket title");
-      return;
-    }
-
-    setIsSubmitting(true);
-    const result = await createTicket(ticketTitle, ticketDescription);
-    setIsSubmitting(false);
-
-    if (result) {
-      toast.success("Ticket created successfully!");
-      setNewTicketOpen(false);
-      setTicketTitle("");
-      setTicketDescription("");
-    } else {
-      toast.error("Failed to create ticket");
     }
   };
 
@@ -135,50 +108,13 @@ const Dashboard = () => {
 
       <main className="container px-4 md:px-6 py-8">
         {/* Welcome Section */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              Welcome back{user.email ? `, ${user.email.split('@')[0]}` : ''}!
-            </h1>
-            <p className="text-muted-foreground">
-              Here's what's happening with your customer support today.
-            </p>
-          </div>
-          <Dialog open={newTicketOpen} onOpenChange={setNewTicketOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                New Ticket
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Support Ticket</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground">Title</label>
-                  <Input 
-                    placeholder="Brief description of the issue"
-                    value={ticketTitle}
-                    onChange={(e) => setTicketTitle(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground">Description</label>
-                  <Textarea 
-                    placeholder="Provide more details..."
-                    value={ticketDescription}
-                    onChange={(e) => setTicketDescription(e.target.value)}
-                    rows={4}
-                  />
-                </div>
-                <Button onClick={handleCreateTicket} disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? "Creating..." : "Create Ticket"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Welcome back{user.email ? `, ${user.email.split('@')[0]}` : ''}!
+          </h1>
+          <p className="text-muted-foreground">
+            Here's what's happening with your customer support today.
+          </p>
         </div>
 
         {/* Subscription Status */}
@@ -304,40 +240,15 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Support Tickets */}
-        {tickets.length > 0 && (
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle>Your Support Tickets</CardTitle>
-              <CardDescription>Track and manage your support requests</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {tickets.map((ticket) => (
-                  <div key={ticket.id} className="flex items-center gap-4 p-4 rounded-lg border border-border hover:bg-muted/30 transition-colors">
-                    <div className={`w-3 h-3 rounded-full ${
-                      ticket.status === 'open' ? 'bg-yellow-500' :
-                      ticket.status === 'in_progress' ? 'bg-blue-500' :
-                      ticket.status === 'resolved' ? 'bg-green-500' : 'bg-gray-500'
-                    }`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground">{ticket.title}</p>
-                      <p className="text-sm text-muted-foreground truncate">{ticket.description || 'No description'}</p>
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      ticket.priority === 'urgent' ? 'bg-red-100 text-red-700' :
-                      ticket.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                      ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {ticket.priority}
-                    </span>
-                    <span className="text-xs text-muted-foreground capitalize">{ticket.status.replace('_', ' ')}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Ticket Management */}
+        <div className="mt-8">
+          <TicketManagement 
+            tickets={tickets}
+            onCreateTicket={createTicket}
+            onUpdateTicket={updateTicket}
+            onDeleteTicket={deleteTicket}
+          />
+        </div>
       </main>
     </div>
   );
