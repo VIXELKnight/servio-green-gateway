@@ -4,9 +4,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TicketManagement } from "@/components/Dashboard/TicketManagement";
+import { Analytics } from "@/components/Dashboard/Analytics";
 import { 
   LogOut, 
   Mail, 
@@ -19,7 +21,9 @@ import {
   Clock,
   CheckCircle2,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  LayoutDashboard,
+  Ticket
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -151,104 +155,141 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {displayStats.map((stat) => (
-            <Card key={stat.label}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <stat.icon className="w-5 h-5 text-primary" />
-                  </div>
-                  <span className={`text-sm font-medium ${
-                    stat.change.startsWith('+') || stat.change.startsWith('-') ? 'text-primary' : 'text-muted-foreground'
-                  }`}>
-                    {stat.change.startsWith('+') || stat.change.startsWith('-') ? stat.change : ''}
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {/* Dashboard Tabs */}
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 max-w-md">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <LayoutDashboard className="w-4 h-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="tickets" className="flex items-center gap-2">
+              <Ticket className="w-4 h-4" />
+              Tickets
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Quick Actions & Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Quick Actions */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Jump to common tasks</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3">
-              {quickActions.map((action) => (
-                <Button
-                  key={action.label}
-                  variant="outline"
-                  className="h-auto py-4 flex-col gap-2"
-                  asChild
-                >
-                  <a href={action.href}>
-                    <action.icon className="w-5 h-5 text-primary" />
-                    <span className="text-sm">{action.label}</span>
-                  </a>
-                </Button>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>
-                {activities.length > 0 
-                  ? "Latest customer interactions" 
-                  : "Create your first ticket to see activity here"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {activities.length > 0 ? (
-                <div className="space-y-4">
-                  {activities.map((item) => {
-                    const Icon = getActivityIcon(item.activityType);
-                    return (
-                      <div key={item.id} className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                          <Icon className="w-5 h-5 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground">{item.title}</p>
-                          <p className="text-sm text-muted-foreground truncate">{item.description}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
-                        </span>
+          <TabsContent value="overview" className="space-y-8">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {displayStats.map((stat) => (
+                <Card key={stat.label}>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <stat.icon className="w-5 h-5 text-primary" />
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No recent activity</p>
-                  <p className="text-sm">Create a ticket to get started</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                      <span className={`text-sm font-medium ${
+                        stat.change.startsWith('+') || stat.change.startsWith('-') ? 'text-primary' : 'text-muted-foreground'
+                      }`}>
+                        {stat.change.startsWith('+') || stat.change.startsWith('-') ? stat.change : ''}
+                      </span>
+                    </div>
+                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
-        {/* Ticket Management */}
-        <div className="mt-8">
-          <TicketManagement 
-            tickets={tickets}
-            onCreateTicket={createTicket}
-            onUpdateTicket={updateTicket}
-            onDeleteTicket={deleteTicket}
-          />
-        </div>
+            {/* Quick Actions & Recent Activity */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Quick Actions */}
+              <Card className="lg:col-span-1">
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                  <CardDescription>Jump to common tasks</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-3">
+                  {quickActions.map((action) => (
+                    <Button
+                      key={action.label}
+                      variant="outline"
+                      className="h-auto py-4 flex-col gap-2"
+                      asChild
+                    >
+                      <a href={action.href}>
+                        <action.icon className="w-5 h-5 text-primary" />
+                        <span className="text-sm">{action.label}</span>
+                      </a>
+                    </Button>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Recent Activity */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Recent Activity</CardTitle>
+                  <CardDescription>
+                    {activities.length > 0 
+                      ? "Latest customer interactions" 
+                      : "Create your first ticket to see activity here"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {activities.length > 0 ? (
+                    <div className="space-y-4">
+                      {activities.map((item) => {
+                        const Icon = getActivityIcon(item.activityType);
+                        return (
+                          <div key={item.id} className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                              <Icon className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-foreground">{item.title}</p>
+                              <p className="text-sm text-muted-foreground truncate">{item.description}</p>
+                            </div>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No recent activity</p>
+                      <p className="text-sm">Create a ticket to get started</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <Analytics 
+              stats={{
+                total_tickets: stats.activeTickets + (tickets?.filter(t => t.status === 'resolved').length || 0),
+                resolved_tickets: tickets?.filter(t => t.status === 'resolved').length || 0,
+                avg_response_time_minutes: stats.avgResponseTime,
+                satisfaction_rate: stats.satisfactionRate,
+                emails_processed: stats.emailsProcessed,
+              }}
+              tickets={tickets?.map(t => ({
+                id: t.id,
+                created_at: t.createdAt,
+                status: t.status,
+                resolved_at: t.resolvedAt,
+              })) || []}
+            />
+          </TabsContent>
+
+          <TabsContent value="tickets">
+            <TicketManagement 
+              tickets={tickets}
+              onCreateTicket={createTicket}
+              onUpdateTicket={updateTicket}
+              onDeleteTicket={deleteTicket}
+            />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

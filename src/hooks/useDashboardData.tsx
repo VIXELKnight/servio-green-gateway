@@ -26,6 +26,7 @@ interface SupportTicket {
   status: string;
   priority: string;
   createdAt: string;
+  resolvedAt: string | null;
 }
 
 export const useDashboardData = () => {
@@ -121,6 +122,7 @@ export const useDashboardData = () => {
             status: t.status,
             priority: t.priority,
             createdAt: t.created_at,
+            resolvedAt: t.resolved_at,
           }))
         );
       }
