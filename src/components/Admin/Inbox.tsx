@@ -8,7 +8,7 @@ type Submission = {
   email: string;
   message: string;
   created_at: string;
-  status?: 'unread' | 'responded';
+  status?: string;
   responded_at?: string | null;
   responded_by?: string | null;
 };
@@ -54,7 +54,7 @@ export default function Inbox() {
   async function markResponded(id: string) {
     const { error } = await supabase
       .from('contact_submissions')
-      .update({ status: 'responded', responded_at: new Date().toISOString() })
+      .update({ status: 'responded', responded_at: new Date().toISOString() } as any)
       .eq('id', id);
     if (error) {
       alert('Mark responded failed');

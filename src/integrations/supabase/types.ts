@@ -51,6 +51,11 @@ export type Database = {
           id: string
           message: string
           name: string
+          reply_body: string | null
+          reply_channel: string | null
+          responded_at: string | null
+          responded_by: string | null
+          status: string
         }
         Insert: {
           created_at?: string
@@ -58,6 +63,11 @@ export type Database = {
           id?: string
           message: string
           name: string
+          reply_body?: string | null
+          reply_channel?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
         }
         Update: {
           created_at?: string
@@ -65,6 +75,11 @@ export type Database = {
           id?: string
           message?: string
           name?: string
+          reply_body?: string | null
+          reply_channel?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
         }
         Relationships: []
       }
