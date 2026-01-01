@@ -2,11 +2,14 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, Shield } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { isAdmin } from "@/lib/supabaseRoles";
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
   const { user, signOut } = useAuth();
 
   useEffect(() => {
@@ -17,6 +20,17 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    async function checkAdmin() {
+      if (user) {
+        const admin = await isAdmin(supabase, user.id);
+        setIsUserAdmin(admin);
+      } else {
+        setIsUserAdmin(false);
+      }
+    }
+    checkAdmin();
+  }, [user]);
   const navLinks = [
     { href: "#services", label: "Services" },
     { href: "#pricing", label: "Pricing" },
@@ -59,6 +73,14 @@ const Navbar = () => {
             
             {user ? (
               <div className="flex items-center gap-4">
+                {isUserAdmin && (
+                  <Link to="/admin">
+                    <Button variant={isScrolled ? "outline" : "heroOutline"} size="sm">
+                      <Shield className="w-4 h-4 mr-2" />
+                      Admin
+                    </Button>
+                  </Link>
+                )}
                 <Link to="/dashboard">
                   <Button variant={isScrolled ? "outline" : "heroOutline"} size="sm">
                     Dashboard
@@ -110,6 +132,14 @@ const Navbar = () => {
               ))}
               {user ? (
                 <>
+                  {isUserAdmin && (
+                    <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)}>
+                      <Button variant="outline" size="sm" className="w-full mb-2">
+                        <Shield className="w-4 h-4 mr-2" />
+                        Admin
+                      </Button>
+                    </Link>
+                  )}
                   <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
                     <Button variant="default" size="sm" className="w-full mb-2">
                       Dashboard
@@ -117,7 +147,7 @@ const Navbar = () => {
                   </Link>
                   <span className="text-sm text-muted-foreground">{user.email}</span>
                   <Button variant="outline" size="sm" onClick={signOut}>
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-4 h-4 mr-2" />
                     Sign Out
                   </Button>
                 </>
