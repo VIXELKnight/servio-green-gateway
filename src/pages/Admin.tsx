@@ -23,6 +23,7 @@ import {
   Home
 } from 'lucide-react';
 import ReplyModal from '@/components/Admin/ReplyModal';
+import SettingsPanel from '@/components/Admin/SettingsPanel';
 import {
   Table,
   TableBody,
@@ -319,18 +320,7 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="settings">
-            <Card>
-              <CardHeader>
-                <CardTitle>Settings</CardTitle>
-                <CardDescription>Configure admin preferences</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12 text-muted-foreground">
-                  <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Settings panel coming soon</p>
-                </div>
-              </CardContent>
-            </Card>
+            <SettingsPanel />
           </TabsContent>
         </Tabs>
       </div>

@@ -1,5 +1,19 @@
-import React, { useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
+import { useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { Send, Loader2, User, Mail, MessageSquare } from "lucide-react";
 
 type Props = {
   submission: {
@@ -13,16 +27,21 @@ type Props = {
 };
 
 export default function ReplyModal({ submission, onClose, onSent }: Props) {
+  const [subject, setSubject] = useState(`Re: Your inquiry to Servio`);
   const [replyBody, setReplyBody] = useState('');
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   async function handleSend() {
-    setError(null);
     if (!replyBody.trim()) {
-      setError('Please enter a reply.');
+      toast({
+        title: "Error",
+        description: "Please enter a reply message.",
+        variant: "destructive",
+      });
       return;
     }
+
     setSending(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -34,7 +53,7 @@ export default function ReplyModal({ submission, onClose, onSent }: Props) {
         body: {
           submissionId: submission.id,
           to_email: submission.email,
-          subject: `Re: your message to us`,
+          subject: subject,
           body: replyBody,
         },
       });
@@ -47,34 +66,107 @@ export default function ReplyModal({ submission, onClose, onSent }: Props) {
         throw new Error(data.error);
       }
 
+      toast({
+        title: "Reply sent",
+        description: `Your response has been sent to ${submission.email}`,
+      });
       onSent();
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Failed to send reply.');
+      toast({
+        title: "Error",
+        description: err.message || 'Failed to send reply.',
+        variant: "destructive",
+      });
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="reply-title" style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'white', padding: 20, maxWidth: 800, width: '100%' }}>
-        <h2 id="reply-title">Reply to {submission.name} ({submission.email})</h2>
-        <p>Original message:</p>
-        <blockquote>{submission.message}</blockquote>
+    <Dialog open={true} onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Mail className="w-5 h-5 text-primary" />
+            Reply to Message
+          </DialogTitle>
+          <DialogDescription>
+            Send a response to {submission.name}
+          </DialogDescription>
+        </DialogHeader>
 
-        <label>
-          Your reply
-          <textarea rows={8} value={replyBody} onChange={e => setReplyBody(e.target.value)} style={{ width: '100%' }} />
-        </label>
+        <div className="space-y-6 py-4">
+          {/* Original Message Card */}
+          <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm">
+              <User className="w-4 h-4 text-muted-foreground" />
+              <span className="font-medium">{submission.name}</span>
+              <span className="text-muted-foreground">({submission.email})</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <MessageSquare className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
+              <p className="text-sm text-foreground/80 whitespace-pre-wrap">
+                {submission.message}
+              </p>
+            </div>
+          </div>
 
-        {error && <p role="alert" style={{ color: 'red' }}>{error}</p>}
+          {/* Reply Form */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="to">To</Label>
+              <Input
+                id="to"
+                value={submission.email}
+                disabled
+                className="bg-muted"
+              />
+            </div>
 
-        <div style={{ marginTop: 12 }}>
-          <button onClick={handleSend} disabled={sending}>{sending ? 'Sending…' : 'Send reply'}</button>
-          <button onClick={onClose} style={{ marginLeft: 8 }}>Cancel</button>
+            <div className="space-y-2">
+              <Label htmlFor="subject">Subject</Label>
+              <Input
+                id="subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Email subject"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reply">Your Reply</Label>
+              <Textarea
+                id="reply"
+                rows={6}
+                value={replyBody}
+                onChange={(e) => setReplyBody(e.target.value)}
+                placeholder="Type your response here..."
+                className="resize-none"
+              />
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={onClose} disabled={sending}>
+            Cancel
+          </Button>
+          <Button onClick={handleSend} disabled={sending}>
+            {sending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4 mr-2" />
+                Send Reply
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
