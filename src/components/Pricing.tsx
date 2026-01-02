@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { STRIPE_PLANS } from "@/lib/stripe";
+import CheckoutModal from "@/components/CheckoutModal";
 
 const plans = [
   {
@@ -61,6 +62,8 @@ const plans = [
 const Pricing = () => {
   const { user, currentPlan, isSubscribed } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{ key: string; name: string; priceId: string } | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -78,26 +81,13 @@ const Pricing = () => {
     const plan = STRIPE_PLANS[planKey as keyof typeof STRIPE_PLANS];
     if (!plan) return;
 
-    setLoadingPlan(planKey);
+    setSelectedPlan({ key: planKey, name: plan.name, priceId: plan.price_id });
+    setCheckoutOpen(true);
+  };
 
-    try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId: plan.price_id },
-      });
-
-      if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank");
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to start checkout",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingPlan(null);
-    }
+  const handleCloseCheckout = () => {
+    setCheckoutOpen(false);
+    setSelectedPlan(null);
   };
 
   const handleManageSubscription = async () => {
@@ -208,19 +198,24 @@ const Pricing = () => {
                     size="lg"
                     className="w-full"
                     onClick={() => handleSubscribe(plan.key)}
-                    disabled={loadingPlan === plan.key}
                   >
-                    {loadingPlan === plan.key
-                      ? "Loading..."
-                      : plan.key === "enterprise"
-                      ? "Contact Sales"
-                      : "Get Started"}
+                    {plan.key === "enterprise" ? "Contact Sales" : "Get Started"}
                   </Button>
                 )}
               </div>
             );
           })}
         </div>
+
+        {/* Embedded Checkout Modal */}
+        {selectedPlan && (
+          <CheckoutModal
+            isOpen={checkoutOpen}
+            onClose={handleCloseCheckout}
+            priceId={selectedPlan.priceId}
+            planName={selectedPlan.name}
+          />
+        )}
       </div>
     </section>
   );
