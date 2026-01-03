@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TicketManagement } from "@/components/Dashboard/TicketManagement";
 import { Analytics } from "@/components/Dashboard/Analytics";
+import { BotManagement } from "@/components/Dashboard/BotManagement";
 import { 
   LogOut, 
   Mail, 
@@ -23,7 +24,8 @@ import {
   ArrowRight,
   RefreshCw,
   LayoutDashboard,
-  Ticket
+  Ticket,
+  Bot
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -157,10 +159,14 @@ const Dashboard = () => {
 
         {/* Dashboard Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsList className="grid w-full grid-cols-4 max-w-lg">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <LayoutDashboard className="w-4 h-4" />
               Overview
+            </TabsTrigger>
+            <TabsTrigger value="bots" className="flex items-center gap-2">
+              <Bot className="w-4 h-4" />
+              Bots
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
@@ -261,6 +267,10 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="bots">
+            <BotManagement />
           </TabsContent>
 
           <TabsContent value="analytics">
