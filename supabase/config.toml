@@ -1,1 +1,22 @@
 project_id = "mjruadmnoaqeprygjcre"
+
+[functions.check-subscription]
+verify_jwt = true
+
+[functions.create-checkout]
+verify_jwt = true
+
+[functions.create-embedded-checkout]
+verify_jwt = true
+
+[functions.customer-portal]
+verify_jwt = true
+
+[functions.send-reply]
+verify_jwt = true
+
+[functions.bot-chat]
+verify_jwt = false
+
+[functions.bot-init]
+verify_jwt = false

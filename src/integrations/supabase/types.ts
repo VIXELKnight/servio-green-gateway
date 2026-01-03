@@ -44,6 +44,171 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_channels: {
+        Row: {
+          bot_id: string
+          channel_type: string
+          config: Json | null
+          created_at: string
+          embed_key: string | null
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          bot_id: string
+          channel_type: string
+          config?: Json | null
+          created_at?: string
+          embed_key?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          bot_id?: string
+          channel_type?: string
+          config?: Json | null
+          created_at?: string
+          embed_key?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_channels_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_conversations: {
+        Row: {
+          bot_id: string
+          channel_type: string
+          created_at: string
+          escalation_reason: string | null
+          id: string
+          status: string
+          updated_at: string
+          visitor_email: string | null
+          visitor_id: string
+          visitor_name: string | null
+        }
+        Insert: {
+          bot_id: string
+          channel_type: string
+          created_at?: string
+          escalation_reason?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+          visitor_email?: string | null
+          visitor_id: string
+          visitor_name?: string | null
+        }
+        Update: {
+          bot_id?: string
+          channel_type?: string
+          created_at?: string
+          escalation_reason?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+          visitor_email?: string | null
+          visitor_id?: string
+          visitor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_conversations_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "bot_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bots: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          instructions: string
+          is_active: boolean
+          name: string
+          triage_enabled: boolean
+          triage_threshold: number | null
+          updated_at: string
+          user_id: string
+          welcome_message: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          instructions?: string
+          is_active?: boolean
+          name: string
+          triage_enabled?: boolean
+          triage_threshold?: number | null
+          updated_at?: string
+          user_id: string
+          welcome_message?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          instructions?: string
+          is_active?: boolean
+          name?: string
+          triage_enabled?: boolean
+          triage_threshold?: number | null
+          updated_at?: string
+          user_id?: string
+          welcome_message?: string | null
+        }
+        Relationships: []
+      }
       contact_submissions: {
         Row: {
           created_at: string
@@ -115,6 +280,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      knowledge_base: {
+        Row: {
+          bot_id: string
+          category: string | null
+          content: string
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          bot_id: string
+          category?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          bot_id?: string
+          category?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_base_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
