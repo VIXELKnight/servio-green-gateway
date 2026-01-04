@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { Menu, X, LogOut, Shield } from "lucide-react";
+import { Menu, X, LogOut, Shield, MessageSquare, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { isAdmin } from "@/lib/supabaseRoles";
 
@@ -31,10 +31,12 @@ const Navbar = () => {
     }
     checkAdmin();
   }, [user]);
+
   const navLinks = [
-    { href: "#services", label: "Services" },
+    { href: "#services", label: "Features" },
+    { href: "#how-it-works", label: "How It Works" },
     { href: "#pricing", label: "Pricing" },
-    { href: "#contact", label: "Contact" },
+    { href: "/widget-demo", label: "Demo", isRoute: true },
   ];
 
   return (
@@ -50,29 +52,44 @@ const Navbar = () => {
           {/* Logo */}
           <Link
             to="/"
-            className={`text-2xl font-bold transition-colors ${
+            className={`flex items-center gap-2 transition-colors ${
               isScrolled ? "text-primary" : "text-primary-foreground"
             }`}
           >
-            Servio
+            <div className={`w-9 h-9 rounded-lg ${isScrolled ? 'bg-primary/10' : 'bg-primary-foreground/10'} flex items-center justify-center`}>
+              <MessageSquare className="w-5 h-5" />
+            </div>
+            <span className="text-xl font-bold">Servio</span>
           </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className={`text-sm font-medium transition-colors hover:opacity-80 ${
-                  isScrolled ? "text-foreground" : "text-primary-foreground"
-                }`}
-              >
-                {link.label}
-              </a>
+              link.isRoute ? (
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  className={`text-sm font-medium transition-colors hover:opacity-80 ${
+                    isScrolled ? "text-foreground" : "text-primary-foreground"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className={`text-sm font-medium transition-colors hover:opacity-80 ${
+                    isScrolled ? "text-foreground" : "text-primary-foreground"
+                  }`}
+                >
+                  {link.label}
+                </a>
+              )
             ))}
             
             {user ? (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 {isUserAdmin && (
                   <Link to="/admin">
                     <Button variant={isScrolled ? "outline" : "heroOutline"} size="sm">
@@ -82,30 +99,40 @@ const Navbar = () => {
                   </Link>
                 )}
                 <Link to="/dashboard">
-                  <Button variant={isScrolled ? "outline" : "heroOutline"} size="sm">
+                  <Button variant={isScrolled ? "default" : "hero"} size="sm">
                     Dashboard
+                    <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </Link>
                 <Button
                   variant={isScrolled ? "ghost" : "heroOutline"}
-                  size="sm"
+                  size="icon"
                   onClick={signOut}
+                  className="w-9 h-9"
                 >
                   <LogOut className="w-4 h-4" />
                 </Button>
               </div>
             ) : (
-              <Link to="/auth">
-                <Button variant={isScrolled ? "default" : "hero"} size="sm">
-                  Get Started
-                </Button>
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link to="/auth">
+                  <Button variant={isScrolled ? "ghost" : "heroOutline"} size="sm">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/auth">
+                  <Button variant={isScrolled ? "default" : "hero"} size="sm">
+                    Get Started
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </Link>
+              </div>
             )}
           </div>
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-2"
+            className="md:hidden p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
             {isMobileMenuOpen ? (
@@ -118,43 +145,61 @@ const Navbar = () => {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden py-4 bg-background border-t border-border">
-            <div className="flex flex-col gap-4">
+          <div className="md:hidden py-4 bg-background border-t border-border rounded-b-xl shadow-xl animate-fade-up">
+            <div className="flex flex-col gap-2 px-2">
               {navLinks.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  className="text-foreground font-medium py-2"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {link.label}
-                </a>
+                link.isRoute ? (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    className="text-foreground font-medium py-3 px-4 rounded-lg hover:bg-muted transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="text-foreground font-medium py-3 px-4 rounded-lg hover:bg-muted transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {link.label}
+                  </a>
+                )
               ))}
+              
+              <div className="border-t border-border my-2" />
+              
               {user ? (
                 <>
                   {isUserAdmin && (
                     <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)}>
-                      <Button variant="outline" size="sm" className="w-full mb-2">
+                      <Button variant="outline" className="w-full justify-start">
                         <Shield className="w-4 h-4 mr-2" />
-                        Admin
+                        Admin Panel
                       </Button>
                     </Link>
                   )}
                   <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
-                    <Button variant="default" size="sm" className="w-full mb-2">
+                    <Button className="w-full justify-start">
                       Dashboard
+                      <ChevronRight className="w-4 h-4 ml-auto" />
                     </Button>
                   </Link>
-                  <span className="text-sm text-muted-foreground">{user.email}</span>
-                  <Button variant="outline" size="sm" onClick={signOut}>
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
-                  </Button>
+                  <div className="flex items-center justify-between px-4 py-2">
+                    <span className="text-sm text-muted-foreground truncate max-w-[200px]">{user.email}</span>
+                    <Button variant="ghost" size="sm" onClick={signOut}>
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </Button>
+                  </div>
                 </>
               ) : (
                 <Link to="/auth" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button variant="default" size="sm" className="w-full">
-                    Get Started
+                  <Button className="w-full">
+                    Get Started Free
+                    <ChevronRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
               )}

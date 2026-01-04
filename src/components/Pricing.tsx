@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, Crown } from "lucide-react";
+import { Check, Crown, Sparkles, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -14,31 +14,36 @@ const plans = [
     name: "Starter",
     price: "$49",
     period: "/month",
-    description: "Perfect for small businesses getting started",
+    description: "Perfect for small businesses getting started with AI support",
     features: [
-      "Up to 500 support tickets/month",
-      "Basic chatbot automation",
-      "Email support",
-      "Standard response time",
+      "Up to 500 conversations/month",
+      "1 AI Bot",
+      "Website widget",
       "Basic analytics",
+      "Email support",
+      "5 knowledge base articles",
     ],
     popular: false,
+    icon: Zap,
   },
   {
     key: "professional" as const,
     name: "Professional",
     price: "$149",
     period: "/month",
-    description: "For growing teams that need more power",
+    description: "For growing teams that need multi-channel automation",
     features: [
-      "Up to 2,500 support tickets/month",
-      "Advanced AI automation",
-      "Priority email & chat support",
-      "AI inbox management",
+      "Up to 2,500 conversations/month",
+      "5 AI Bots",
+      "Website, WhatsApp & Instagram",
       "Advanced analytics & reporting",
-      "Custom chatbot training",
+      "Priority support",
+      "Unlimited knowledge base",
+      "Custom bot training",
+      "Auto-triage & escalation",
     ],
     popular: true,
+    icon: Sparkles,
   },
   {
     key: "enterprise" as const,
@@ -47,15 +52,18 @@ const plans = [
     period: "",
     description: "Tailored solutions for large organizations",
     features: [
-      "Unlimited support tickets",
-      "Full AI suite access",
+      "Unlimited conversations",
+      "Unlimited AI Bots",
+      "All channels + API access",
       "24/7 dedicated support",
       "Custom integrations",
       "SLA guarantees",
       "Dedicated account manager",
       "On-premise deployment option",
+      "SSO & advanced security",
     ],
     popular: false,
+    icon: Crown,
   },
 ];
 
@@ -107,37 +115,46 @@ const Pricing = () => {
   };
 
   return (
-    <section id="pricing" className="py-24 md:py-32 bg-secondary/50">
-      <div className="container px-4 md:px-6">
+    <section id="pricing" className="py-24 md:py-32 bg-muted/30 relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/5 rounded-full blur-3xl" />
+      
+      <div className="container px-4 md:px-6 relative z-10">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="text-sm font-semibold text-primary uppercase tracking-wider">Pricing</span>
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold uppercase tracking-wider mb-4">
+            <Crown className="w-4 h-4" />
+            Pricing Plans
+          </span>
           <h2 className="mt-4 text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
             Simple, Transparent
             <span className="text-gradient"> Pricing</span>
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Choose the plan that fits your business needs. Upgrade or downgrade anytime.
+          <p className="mt-6 text-lg text-muted-foreground">
+            Choose the plan that fits your business needs. Start free, upgrade when you're ready.
+            All plans include a 14-day free trial.
           </p>
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
           {plans.map((plan) => {
             const isCurrentPlan = currentPlan === plan.key;
+            const PlanIcon = plan.icon;
             
             return (
               <div
                 key={plan.name}
                 className={`relative p-8 rounded-2xl transition-all duration-300 hover:-translate-y-2 ${
                   plan.popular
-                    ? "bg-primary text-primary-foreground shadow-glow scale-105 md:scale-110"
+                    ? "bg-primary text-primary-foreground shadow-2xl scale-105 lg:scale-110 z-10"
                     : "bg-card border border-border hover:border-primary/30 hover:shadow-xl"
                 }`}
               >
                 {/* Popular badge */}
                 {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-green-200 text-primary rounded-full text-sm font-semibold">
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-green-200 text-primary rounded-full text-sm font-semibold shadow-lg flex items-center gap-1">
+                    <Sparkles className="w-4 h-4" />
                     Most Popular
                   </div>
                 )}
@@ -149,6 +166,11 @@ const Pricing = () => {
                     Your Plan
                   </div>
                 )}
+
+                {/* Plan icon */}
+                <div className={`w-12 h-12 rounded-xl ${plan.popular ? 'bg-primary-foreground/20' : 'bg-primary/10'} flex items-center justify-center mb-6`}>
+                  <PlanIcon className={`w-6 h-6 ${plan.popular ? 'text-primary-foreground' : 'text-primary'}`} />
+                </div>
 
                 {/* Plan name */}
                 <h3 className={`text-xl font-bold ${plan.popular ? "text-primary-foreground" : "text-foreground"}`}>
@@ -199,12 +221,19 @@ const Pricing = () => {
                     className="w-full"
                     onClick={() => handleSubscribe(plan.key)}
                   >
-                    {plan.key === "enterprise" ? "Contact Sales" : "Get Started"}
+                    {plan.key === "enterprise" ? "Contact Sales" : "Start Free Trial"}
                   </Button>
                 )}
               </div>
             );
           })}
+        </div>
+
+        {/* Money back guarantee */}
+        <div className="mt-12 text-center">
+          <p className="text-muted-foreground text-sm">
+            ✓ 14-day free trial • ✓ No credit card required • ✓ Cancel anytime
+          </p>
         </div>
 
         {/* Embedded Checkout Modal */}

@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { KnowledgeBase } from "./KnowledgeBase";
 import { BotConversations } from "./BotConversations";
+import { ChannelConfigDialog } from "./ChannelConfig";
 
 interface BotData {
   id: string;
@@ -518,22 +519,11 @@ export function BotManagement() {
                                   </div>
                                 )}
 
-                                {channel.channel_type === "whatsapp" && (
-                                  <div className="text-xs text-muted-foreground">
-                                    <p>Connect via WhatsApp Business API</p>
-                                    <Button variant="link" className="p-0 h-auto text-xs" disabled>
-                                      Configure WhatsApp →
-                                    </Button>
-                                  </div>
-                                )}
-
-                                {channel.channel_type === "instagram" && (
-                                  <div className="text-xs text-muted-foreground">
-                                    <p>Connect via Instagram Graph API</p>
-                                    <Button variant="link" className="p-0 h-auto text-xs" disabled>
-                                      Configure Instagram →
-                                    </Button>
-                                  </div>
+                                {(channel.channel_type === "whatsapp" || channel.channel_type === "instagram") && (
+                                  <ChannelConfigDialog 
+                                    channel={channel} 
+                                    onUpdate={() => selectedBot && fetchChannels(selectedBot.id)} 
+                                  />
                                 )}
                               </CardContent>
                             </Card>
