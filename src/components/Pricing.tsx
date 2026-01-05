@@ -1,12 +1,22 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, Crown, Sparkles, Zap } from "lucide-react";
+import { Check, Crown, Sparkles, Zap, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { STRIPE_PLANS } from "@/lib/stripe";
 import CheckoutModal from "@/components/CheckoutModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const plans = [
   {
@@ -68,10 +78,11 @@ const plans = [
 ];
 
 const Pricing = () => {
-  const { user, currentPlan, isSubscribed } = useAuth();
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const { user, currentPlan, isSubscribed, checkSubscription } = useAuth();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ key: string; name: string; priceId: string } | null>(null);
+  const [cancellingSubscription, setCancellingSubscription] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -98,19 +109,30 @@ const Pricing = () => {
     setSelectedPlan(null);
   };
 
-  const handleManageSubscription = async () => {
+  const handleCancelSubscription = async () => {
+    setCancellingSubscription(true);
     try {
-      const { data, error } = await supabase.functions.invoke("customer-portal");
+      const { data, error } = await supabase.functions.invoke("cancel-subscription", {
+        body: { cancel_at_period_end: true }
+      });
       if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank");
-      }
+      
+      toast({
+        title: "Subscription Cancelled",
+        description: data.message || "Your subscription will be cancelled at the end of the billing period.",
+      });
+      
+      // Refresh subscription status
+      await checkSubscription();
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to open portal",
+        description: error.message || "Failed to cancel subscription",
         variant: "destructive",
       });
+    } finally {
+      setCancellingSubscription(false);
+      setShowCancelDialog(false);
     }
   };
 
@@ -132,7 +154,7 @@ const Pricing = () => {
           </h2>
           <p className="mt-6 text-lg text-muted-foreground">
             Choose the plan that fits your business needs. Start free, upgrade when you're ready.
-            All plans include a 14-day free trial.
+            All plans include a 3-day free trial.
           </p>
         </div>
 
@@ -207,12 +229,12 @@ const Pricing = () => {
                 {/* CTA Button */}
                 {isCurrentPlan && isSubscribed ? (
                   <Button
-                    variant={plan.popular ? "hero" : "outline"}
+                    variant={plan.popular ? "heroOutline" : "destructive"}
                     size="lg"
                     className="w-full"
-                    onClick={handleManageSubscription}
+                    onClick={() => setShowCancelDialog(true)}
                   >
-                    Manage Subscription
+                    Cancel Subscription
                   </Button>
                 ) : (
                   <Button
@@ -232,7 +254,7 @@ const Pricing = () => {
         {/* Money back guarantee */}
         <div className="mt-12 text-center">
           <p className="text-muted-foreground text-sm">
-            ✓ 14-day free trial • ✓ No credit card required • ✓ Cancel anytime
+            ✓ 3-day free trial • ✓ No credit card required • ✓ Cancel anytime
           </p>
         </div>
 
@@ -245,6 +267,38 @@ const Pricing = () => {
             planName={selectedPlan.name}
           />
         )}
+
+        {/* Cancel Subscription Dialog */}
+        <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your subscription will remain active until the end of your current billing period. 
+                After that, you'll lose access to premium features.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={cancellingSubscription}>
+                Keep Subscription
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleCancelSubscription}
+                disabled={cancellingSubscription}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {cancellingSubscription ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Cancelling...
+                  </>
+                ) : (
+                  "Yes, Cancel"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </section>
   );

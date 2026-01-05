@@ -61,6 +61,9 @@ serve(async (req) => {
       ],
       mode: "subscription",
       ui_mode: "embedded",
+      subscription_data: {
+        trial_period_days: 3,
+      },
       return_url: `${origin}/?checkout_success=true&session_id={CHECKOUT_SESSION_ID}`,
     });
 
