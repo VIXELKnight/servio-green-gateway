@@ -222,11 +222,11 @@ const WidgetDemo = () => {
                   Start Free Trial
                 </Button>
               </Link>
-              <Link to="/#pricing">
+              <a href="/#pricing">
                 <Button variant="heroOutline" size="xl">
                   View Pricing
                 </Button>
-              </Link>
+              </a>
             </div>
           </div>
         </div>
@@ -236,7 +236,7 @@ const WidgetDemo = () => {
       <footer className="py-8 border-t border-border bg-card">
         <div className="container px-4 md:px-6 text-center">
           <p className="text-muted-foreground text-sm">
-            © 2025 Servio. All rights reserved.
+            © {new Date().getFullYear()} Servio. All rights reserved.
           </p>
         </div>
       </footer>
