@@ -15,6 +15,175 @@ interface ChatRequest {
   visitor_email?: string;
 }
 
+interface ShopifyOrder {
+  id: number;
+  name: string;
+  email: string;
+  created_at: string;
+  financial_status: string;
+  fulfillment_status: string | null;
+  total_price: string;
+  currency: string;
+  line_items: Array<{ title: string; quantity: number }>;
+  shipping_address?: { city: string; country: string };
+  tracking_urls?: string[];
+}
+
+interface ShopifyProduct {
+  id: number;
+  title: string;
+  body_html: string;
+  vendor: string;
+  product_type: string;
+  variants: Array<{
+    title: string;
+    price: string;
+    inventory_quantity: number;
+    available: boolean;
+  }>;
+}
+
+// Fetch order from Shopify
+async function fetchShopifyOrder(storeDomain: string, accessToken: string, query: string): Promise<ShopifyOrder | null> {
+  try {
+    // Search by order name (e.g., #1001) or email
+    const isOrderNumber = query.startsWith('#') || /^\d+$/.test(query);
+    const searchQuery = isOrderNumber ? query.replace('#', '') : query;
+    
+    const url = isOrderNumber
+      ? `https://${storeDomain}/admin/api/2024-01/orders.json?name=${encodeURIComponent(query)}&status=any`
+      : `https://${storeDomain}/admin/api/2024-01/orders.json?email=${encodeURIComponent(searchQuery)}&status=any&limit=5`;
+
+    const response = await fetch(url, {
+      headers: {
+        "X-Shopify-Access-Token": accessToken,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.error("Shopify order fetch error:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const orders = data.orders || [];
+    
+    if (orders.length === 0) return null;
+    
+    // Return the most recent order
+    return orders[0];
+  } catch (error) {
+    console.error("Error fetching Shopify order:", error);
+    return null;
+  }
+}
+
+// Search products from Shopify
+async function searchShopifyProducts(storeDomain: string, accessToken: string, query: string): Promise<ShopifyProduct[]> {
+  try {
+    const response = await fetch(
+      `https://${storeDomain}/admin/api/2024-01/products.json?title=${encodeURIComponent(query)}&limit=5`,
+      {
+        headers: {
+          "X-Shopify-Access-Token": accessToken,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Shopify product search error:", response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.products || [];
+  } catch (error) {
+    console.error("Error searching Shopify products:", error);
+    return [];
+  }
+}
+
+// Detect if message is asking about order or product
+function detectShopifyIntent(message: string): { type: 'order' | 'product' | null; query: string } {
+  const lowerMessage = message.toLowerCase();
+  
+  // Order-related patterns
+  const orderPatterns = [
+    /order\s*#?\s*(\d+)/i,
+    /order\s+status/i,
+    /tracking/i,
+    /where\s+is\s+my\s+(order|package|shipment)/i,
+    /shipped/i,
+    /delivery/i,
+    /#(\d+)/,
+  ];
+  
+  for (const pattern of orderPatterns) {
+    const match = message.match(pattern);
+    if (match) {
+      // Extract order number if present
+      const orderNum = match[1] || '';
+      return { type: 'order', query: orderNum ? `#${orderNum}` : '' };
+    }
+  }
+  
+  // Product-related patterns
+  const productPatterns = [
+    /do you have/i,
+    /in stock/i,
+    /available/i,
+    /price of/i,
+    /how much/i,
+    /tell me about/i,
+    /product/i,
+  ];
+  
+  for (const pattern of productPatterns) {
+    if (pattern.test(lowerMessage)) {
+      // Extract potential product name (simple extraction)
+      const words = message.split(/\s+/).filter(w => 
+        w.length > 3 && 
+        !['have', 'stock', 'available', 'price', 'much', 'tell', 'about', 'product', 'what', 'does', 'your'].includes(w.toLowerCase())
+      );
+      return { type: 'product', query: words.slice(0, 3).join(' ') };
+    }
+  }
+  
+  return { type: null, query: '' };
+}
+
+// Format order info for AI context
+function formatOrderContext(order: ShopifyOrder): string {
+  const items = order.line_items.map(item => `${item.quantity}x ${item.title}`).join(', ');
+  const fulfillment = order.fulfillment_status || 'unfulfilled';
+  
+  return `
+ORDER INFORMATION (Order ${order.name}):
+- Status: ${order.financial_status} / ${fulfillment}
+- Items: ${items}
+- Total: ${order.currency} ${order.total_price}
+- Placed: ${new Date(order.created_at).toLocaleDateString()}
+${order.shipping_address ? `- Shipping to: ${order.shipping_address.city}, ${order.shipping_address.country}` : ''}
+${order.tracking_urls?.length ? `- Tracking: ${order.tracking_urls[0]}` : ''}
+`;
+}
+
+// Format product info for AI context
+function formatProductContext(products: ShopifyProduct[]): string {
+  if (products.length === 0) return '';
+  
+  return `
+PRODUCT INFORMATION:
+${products.map(p => {
+    const variant = p.variants[0];
+    const inStock = p.variants.some(v => v.inventory_quantity > 0);
+    return `- ${p.title}: $${variant?.price || 'N/A'} (${inStock ? 'In Stock' : 'Out of Stock'})`;
+  }).join('\n')}
+`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -60,6 +229,14 @@ serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Get Shopify integration if available
+    const { data: shopifyConfig } = await supabase
+      .from("bot_shopify_integrations")
+      .select("*")
+      .eq("bot_id", bot.id)
+      .eq("is_active", true)
+      .maybeSingle();
 
     // Get or create conversation
     let currentConversationId = conversation_id;
@@ -116,9 +293,46 @@ serve(async (req) => {
         knowledgeEntries.map(e => `- ${e.title}: ${e.content}`).join("\n");
     }
 
+    // Shopify context
+    let shopifyContext = "";
+    if (shopifyConfig) {
+      const intent = detectShopifyIntent(message);
+      
+      if (intent.type === 'order') {
+        // Try to find order by number or use visitor email
+        const orderQuery = intent.query || visitor_email || '';
+        if (orderQuery) {
+          const order = await fetchShopifyOrder(
+            shopifyConfig.store_domain, 
+            shopifyConfig.access_token, 
+            orderQuery
+          );
+          if (order) {
+            shopifyContext = formatOrderContext(order);
+          }
+        }
+      } else if (intent.type === 'product' && intent.query) {
+        const products = await searchShopifyProducts(
+          shopifyConfig.store_domain,
+          shopifyConfig.access_token,
+          intent.query
+        );
+        if (products.length > 0) {
+          shopifyContext = formatProductContext(products);
+        }
+      }
+    }
+
     // Build system prompt
     const systemPrompt = `${bot.instructions}
 ${knowledgeContext}
+${shopifyContext}
+
+${shopifyConfig ? `
+You have access to the customer's Shopify store data. When customers ask about orders, use the order information provided above. When they ask about products, use the product information provided.
+
+If a customer asks about an order but no order info is shown above, ask them for their order number (e.g., #1234) to look it up.
+` : ''}
 
 Important guidelines:
 1. Be helpful, friendly, and professional
@@ -200,7 +414,7 @@ Important guidelines:
       conversation_id: currentConversationId,
       role: "assistant",
       content: assistantMessage,
-      metadata: { escalated: shouldEscalate }
+      metadata: { escalated: shouldEscalate, shopify_used: !!shopifyContext }
     });
 
     // Update conversation status if escalated

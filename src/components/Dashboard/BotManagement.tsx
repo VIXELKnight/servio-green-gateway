@@ -23,11 +23,13 @@ import {
   Copy,
   Check,
   Trash2,
-  BookOpen
+  BookOpen,
+  ShoppingBag
 } from "lucide-react";
 import { KnowledgeBase } from "./KnowledgeBase";
 import { BotConversations } from "./BotConversations";
 import { ChannelConfigDialog } from "./ChannelConfig";
+import { ShopifyIntegration } from "./ShopifyIntegration";
 
 interface BotData {
   id: string;
@@ -466,6 +468,10 @@ export function BotManagement() {
                         <BookOpen className="w-4 h-4" />
                         Knowledge Base
                       </TabsTrigger>
+                      <TabsTrigger value="shopify" className="flex items-center gap-2">
+                        <ShoppingBag className="w-4 h-4" />
+                        Shopify
+                      </TabsTrigger>
                       <TabsTrigger value="conversations" className="flex items-center gap-2">
                         <MessageSquare className="w-4 h-4" />
                         Conversations
@@ -553,6 +559,10 @@ export function BotManagement() {
 
                     <TabsContent value="knowledge">
                       <KnowledgeBase botId={selectedBot.id} />
+                    </TabsContent>
+
+                    <TabsContent value="shopify">
+                      <ShopifyIntegration botId={selectedBot.id} />
                     </TabsContent>
 
                     <TabsContent value="conversations">
