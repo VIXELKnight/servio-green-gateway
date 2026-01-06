@@ -167,6 +167,44 @@ export type Database = {
           },
         ]
       }
+      bot_shopify_integrations: {
+        Row: {
+          access_token: string
+          bot_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          store_domain: string
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          bot_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          store_domain: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          bot_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          store_domain?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_shopify_integrations_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: true
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bots: {
         Row: {
           created_at: string

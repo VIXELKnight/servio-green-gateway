@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.bot-init]
 verify_jwt = false
+
+[functions.shopify-test]
+verify_jwt = true
+
+[functions.cancel-subscription]
+verify_jwt = true
