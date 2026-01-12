@@ -5,7 +5,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Smartphone, Instagram, ExternalLink, CheckCircle, AlertCircle } from "lucide-react";
+import { Smartphone, Instagram, ExternalLink, CheckCircle, AlertCircle, Copy } from "lucide-react";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 interface ChannelConfigProps {
   channel: {
@@ -29,6 +31,7 @@ interface InstagramConfig {
   instagram_account_id?: string;
   access_token?: string;
   page_id?: string;
+  webhook_verify_token?: string;
   connected?: boolean;
 }
 
@@ -74,11 +77,13 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
   const handleSaveInstagram = async () => {
     setIsLoading(true);
     try {
+      const verifyToken = instagramConfig.webhook_verify_token || "servio_ig_" + channel.id.slice(0, 8);
       const { error } = await supabase
         .from("bot_channels")
         .update({
           config: {
             ...instagramConfig,
+            webhook_verify_token: verifyToken,
             connected: !!(instagramConfig.instagram_account_id && instagramConfig.access_token)
           }
         })
@@ -152,6 +157,29 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
                 </a>
               </div>
 
+              {/* Webhook URL Section */}
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                <h4 className="font-medium text-sm mb-2">Webhook Configuration</h4>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Use this URL in Meta Developer Console → WhatsApp → Configuration → Callback URL:
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-background p-2 rounded border overflow-x-auto">
+                    {`${SUPABASE_URL}/functions/v1/whatsapp-webhook`}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${SUPABASE_URL}/functions/v1/whatsapp-webhook`);
+                      toast.success("Webhook URL copied!");
+                    }}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="wa-phone-id">Phone Number ID</Label>
                 <Input
@@ -192,7 +220,7 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
                   placeholder="Custom verification token"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Use this token when configuring your webhook in Meta Developer Console
+                  Use this exact token as "Verify token" when configuring the webhook in Meta Developer Console
                 </p>
               </div>
             </div>
@@ -264,6 +292,29 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
                 </a>
               </div>
 
+              {/* Webhook URL Section */}
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                <h4 className="font-medium text-sm mb-2">Webhook Configuration</h4>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Use this URL in Meta Developer Console → Instagram → Webhooks → Callback URL:
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-background p-2 rounded border overflow-x-auto">
+                    {`${SUPABASE_URL}/functions/v1/instagram-webhook`}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${SUPABASE_URL}/functions/v1/instagram-webhook`);
+                      toast.success("Webhook URL copied!");
+                    }}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="ig-account-id">Instagram Account ID</Label>
                 <Input
@@ -295,6 +346,19 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Generate a long-lived page access token with instagram_manage_messages permission
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="ig-verify">Webhook Verify Token</Label>
+                <Input
+                  id="ig-verify"
+                  value={instagramConfig.webhook_verify_token || "servio_ig_" + channel.id.slice(0, 8)}
+                  onChange={(e) => setInstagramConfig({ ...instagramConfig, webhook_verify_token: e.target.value })}
+                  placeholder="Custom verification token"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Use this exact token as "Verify token" when configuring the webhook in Meta Developer Console
                 </p>
               </div>
             </div>
