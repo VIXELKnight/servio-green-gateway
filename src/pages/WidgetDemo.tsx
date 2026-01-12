@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, MessageSquare, Code, Smartphone, Globe, Zap, CheckCircle } from "lucide-react";
 
 const WidgetDemo = () => {
-  const [demoKey] = useState("demo_" + Math.random().toString(36).substring(2, 10));
+  // Use a real active bot channel embed key for demo
+  const [demoKey] = useState("cd7fa1ba-6843-480c-a864-6a6c9589d395");
+  const [widgetLoaded, setWidgetLoaded] = useState(false);
 
   useEffect(() => {
     // Inject the widget script for demo
@@ -24,6 +26,7 @@ const WidgetDemo = () => {
     const script = document.createElement('script');
     script.src = '/widget.js';
     script.setAttribute('data-embed-key', demoKey);
+    script.onload = () => setWidgetLoaded(true);
     document.body.appendChild(script);
 
     return () => {
@@ -116,7 +119,7 @@ const WidgetDemo = () => {
             </p>
             <div className="flex items-center justify-center gap-2 text-primary-foreground/60 text-sm">
               <CheckCircle className="w-4 h-4" />
-              <span>Widget is live – try it now!</span>
+              <span>{widgetLoaded ? "Widget is live – try it now!" : "Loading widget..."}</span>
             </div>
           </div>
         </div>
@@ -197,9 +200,12 @@ const WidgetDemo = () => {
               <CardContent>
                 <div className="bg-muted rounded-lg p-4 font-mono text-sm overflow-x-auto">
                   <code className="text-foreground">
-                    {`<script src="https://yoursite.com/widget.js" data-embed-key="YOUR_EMBED_KEY"></script>`}
+                    {`<script src="https://YOUR_DOMAIN.com/widget.js" data-embed-key="YOUR_EMBED_KEY"></script>`}
                   </code>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Replace YOUR_DOMAIN with your published app domain and YOUR_EMBED_KEY with your bot's embed key from the dashboard.
+                </p>
               </CardContent>
             </Card>
           </div>

@@ -10,8 +10,11 @@
     return;
   }
 
-  // API base URL (production)
+  // API base URL - use the Supabase project URL
   const API_BASE = 'https://mjruadmnoaqeprygjcre.supabase.co/functions/v1';
+  
+  // Debug mode for testing
+  const DEBUG = window.location.hostname === 'localhost' || window.location.hostname.includes('lovableproject');
   
   // Generate visitor ID
   function getVisitorId() {
