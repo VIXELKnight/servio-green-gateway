@@ -16,6 +16,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -70,14 +71,27 @@ const Auth = () => {
           },
         });
         if (error) throw error;
-        toast({ title: "Account created!", description: "You're now signed in." });
+        setVerificationSent(true);
+        toast({ 
+          title: "Verification email sent!", 
+          description: "Please check your inbox and verify your email to continue." 
+        });
       }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Something went wrong",
-        variant: "destructive",
-      });
+      // Handle email not confirmed error on login
+      if (error.message?.includes("Email not confirmed")) {
+        toast({
+          title: "Email not verified",
+          description: "Please check your inbox and verify your email before logging in.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Something went wrong",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -196,8 +210,30 @@ const Auth = () => {
               </p>
             </div>
 
-            {/* Reset sent message */}
-            {mode === "forgot" && resetSent ? (
+            {/* Verification email sent message */}
+            {verificationSent ? (
+              <div className="p-6 rounded-xl bg-primary/5 border border-primary/20 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Mail className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="font-semibold text-foreground mb-2">Verify your email</h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  We've sent a verification link to <span className="font-medium text-foreground">{email}</span>
+                </p>
+                <p className="text-muted-foreground text-xs mb-4">
+                  Click the link in your email to activate your account. Check your spam folder if you don't see it.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMode("login");
+                    setVerificationSent(false);
+                  }}
+                >
+                  Back to login
+                </Button>
+              </div>
+            ) : mode === "forgot" && resetSent ? (
               <div className="p-6 rounded-xl bg-primary/5 border border-primary/20 text-center">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <Mail className="w-8 h-8 text-primary" />
@@ -317,7 +353,7 @@ const Auth = () => {
             )}
 
             {/* Divider */}
-            {mode !== "forgot" && !resetSent && (
+            {mode !== "forgot" && !resetSent && !verificationSent && (
               <>
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
