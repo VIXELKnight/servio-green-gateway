@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef } from 'react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ const contactSchema = z.object({
 
 type ContactForm = z.infer<typeof contactSchema>;
 
-export default function Contact() {
+const Contact = forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>((props, ref) => {
   const [form, setForm] = useState<ContactForm>({ name: '', email: '', message: '' });
   const [errors, setErrors] = useState<Partial<Record<keyof ContactForm, string>>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -67,7 +67,7 @@ export default function Contact() {
   }
 
   return (
-    <section id="contact" className="py-24 md:py-32 bg-background relative overflow-hidden">
+    <section ref={ref} id="contact" className="py-24 md:py-32 bg-background relative overflow-hidden" {...props}>
       {/* Background elements */}
       <div className="absolute top-1/2 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2" />
       <div className="absolute top-1/2 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2" />
@@ -211,4 +211,8 @@ export default function Contact() {
       </div>
     </section>
   );
-}
+});
+
+Contact.displayName = "Contact";
+
+export default Contact;

@@ -1,7 +1,8 @@
+import { forwardRef } from "react";
 import { Link } from "react-router-dom";
 import { MessageSquare, Globe, Instagram, Twitter, Linkedin } from "lucide-react";
 
-const Footer = () => {
+const Footer = forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>((props, ref) => {
   const currentYear = new Date().getFullYear();
 
   const footerLinks = {
@@ -30,7 +31,7 @@ const Footer = () => {
   };
 
   return (
-    <footer className="gradient-hero">
+    <footer ref={ref} className="gradient-hero" {...props}>
       <div className="container px-4 md:px-6">
         {/* Main Footer */}
         <div className="py-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12">
@@ -138,6 +139,8 @@ const Footer = () => {
       </div>
     </footer>
   );
-};
+});
+
+Footer.displayName = "Footer";
 
 export default Footer;
