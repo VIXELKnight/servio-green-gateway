@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,18 +32,17 @@ export default function SettingsPanel() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Load settings from localStorage
     const saved = localStorage.getItem("admin_settings");
     if (saved) {
       try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
+        setSettings((prev) => ({ ...prev, ...JSON.parse(saved) }));
       } catch (e) {
         console.error("Failed to parse settings:", e);
       }
     }
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     setSaving(true);
     try {
       localStorage.setItem("admin_settings", JSON.stringify(settings));
@@ -60,7 +59,11 @@ export default function SettingsPanel() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [settings, toast]);
+
+  const updateSetting = useCallback(<K extends keyof Settings>(key: K, value: Settings[K]) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -80,7 +83,7 @@ export default function SettingsPanel() {
               <Input
                 id="companyName"
                 value={settings.companyName}
-                onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
+                onChange={(e) => updateSetting("companyName", e.target.value)}
                 placeholder="Your company name"
               />
             </div>
@@ -90,7 +93,7 @@ export default function SettingsPanel() {
                 id="supportEmail"
                 type="email"
                 value={settings.supportEmail}
-                onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })}
+                onChange={(e) => updateSetting("supportEmail", e.target.value)}
                 placeholder="support@yourcompany.com"
               />
             </div>
@@ -118,7 +121,7 @@ export default function SettingsPanel() {
             <Switch
               id="autoReply"
               checked={settings.autoReplyEnabled}
-              onCheckedChange={(checked) => setSettings({ ...settings, autoReplyEnabled: checked })}
+              onCheckedChange={(checked) => updateSetting("autoReplyEnabled", checked)}
             />
           </div>
           
@@ -128,7 +131,7 @@ export default function SettingsPanel() {
               <Textarea
                 id="autoReplyMessage"
                 value={settings.autoReplyMessage}
-                onChange={(e) => setSettings({ ...settings, autoReplyMessage: e.target.value })}
+                onChange={(e) => updateSetting("autoReplyMessage", e.target.value)}
                 placeholder="Enter your auto-reply message..."
                 rows={4}
               />
@@ -157,7 +160,7 @@ export default function SettingsPanel() {
             <Switch
               id="emailNotifications"
               checked={settings.emailNotifications}
-              onCheckedChange={(checked) => setSettings({ ...settings, emailNotifications: checked })}
+              onCheckedChange={(checked) => updateSetting("emailNotifications", checked)}
             />
           </div>
         </CardContent>
@@ -183,7 +186,7 @@ export default function SettingsPanel() {
             <Switch
               id="darkMode"
               checked={settings.darkModeDefault}
-              onCheckedChange={(checked) => setSettings({ ...settings, darkModeDefault: checked })}
+              onCheckedChange={(checked) => updateSetting("darkModeDefault", checked)}
             />
           </div>
         </CardContent>
