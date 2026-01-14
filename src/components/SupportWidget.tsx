@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef } from "react";
 import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ interface Message {
   content: string;
 }
 
-const SupportWidget = () => {
+const SupportWidget = forwardRef<HTMLDivElement>((_, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -100,7 +100,7 @@ const SupportWidget = () => {
   }, []);
 
   return (
-    <>
+    <div ref={ref}>
       {/* Chat Window */}
       <div
         className={cn(
@@ -210,9 +210,11 @@ const SupportWidget = () => {
           <MessageCircle className="w-6 h-6" />
         )}
       </Button>
-    </>
+    </div>
   );
-};
+});
+
+SupportWidget.displayName = "SupportWidget";
 
 // Simple demo responses
 function getBotResponse(input: string): string {
