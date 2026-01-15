@@ -30,6 +30,7 @@ import { KnowledgeBase } from "./KnowledgeBase";
 import { BotConversations } from "./BotConversations";
 import { ChannelConfigDialog } from "./ChannelConfig";
 import { ShopifyIntegration } from "./ShopifyIntegration";
+import { EmbedWidget } from "./EmbedWidget";
 
 interface BotData {
   id: string;
@@ -538,22 +539,11 @@ export function BotManagement() {
                       </div>
 
                       {channels.some(c => c.channel_type === 'website' && c.is_active) && (
-                        <Card className="border-primary/20 bg-primary/5">
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-4">
-                              <Code className="w-6 h-6 text-primary shrink-0 mt-1" />
-                              <div>
-                                <h4 className="font-medium mb-1">Website Widget Integration</h4>
-                                <p className="text-sm text-muted-foreground mb-3">
-                                  Add this script tag to your website to enable the chat widget:
-                                </p>
-                                <div className="bg-background rounded-lg p-3 font-mono text-sm">
-                                  {`<script src="${window.location.origin}/widget.js" data-embed-key="${channels.find(c => c.channel_type === 'website')?.embed_key}"></script>`}
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                        <EmbedWidget 
+                          embedKey={channels.find(c => c.channel_type === 'website')?.embed_key || ""}
+                          botName={selectedBot.name}
+                          isActive={channels.find(c => c.channel_type === 'website')?.is_active || false}
+                        />
                       )}
                     </TabsContent>
 

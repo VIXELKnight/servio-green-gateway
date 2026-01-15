@@ -24,6 +24,12 @@ verify_jwt = false
 [functions.shopify-test]
 verify_jwt = true
 
+[functions.shopify-oauth-start]
+verify_jwt = true
+
+[functions.shopify-oauth-callback]
+verify_jwt = false
+
 [functions.cancel-subscription]
 verify_jwt = true
 
