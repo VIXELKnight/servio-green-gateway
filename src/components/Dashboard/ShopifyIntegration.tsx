@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ShoppingBag, Settings, Check, AlertCircle, Loader2, ExternalLink } from "lucide-react";
+import { ShoppingBag, Settings, Check, AlertCircle, Loader2, ExternalLink, Link2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ShopifyIntegrationProps {
@@ -25,22 +25,13 @@ interface ShopifyConfig {
 export function ShopifyIntegration({ botId }: ShopifyIntegrationProps) {
   const [config, setConfig] = useState<ShopifyConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [storeDomain, setStoreDomain] = useState("");
 
-  const [formData, setFormData] = useState({
-    store_domain: "",
-    access_token: "",
-    is_active: true
-  });
-
-  useEffect(() => {
-    fetchConfig();
-  }, [botId]);
-
-  async function fetchConfig() {
+  const fetchConfig = useCallback(async () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from("bot_shopify_integrations")
@@ -54,76 +45,57 @@ export function ShopifyIntegration({ botId }: ShopifyIntegrationProps) {
     
     if (data) {
       setConfig(data);
-      setFormData({
-        store_domain: data.store_domain,
-        access_token: data.access_token,
-        is_active: data.is_active
-      });
     }
     setIsLoading(false);
-  }
+  }, [botId]);
 
-  async function saveConfig() {
-    if (!formData.store_domain.trim() || !formData.access_token.trim()) {
-      toast.error("Please fill in all required fields");
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
+  // Check for OAuth callback success
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("shopify") === "connected") {
+      toast.success("Shopify store connected successfully!");
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      fetchConfig();
+    }
+  }, [fetchConfig]);
+
+  const startOAuthFlow = useCallback(async () => {
+    if (!storeDomain.trim()) {
+      toast.error("Please enter your Shopify store domain");
       return;
     }
 
-    // Clean up store domain
-    let cleanDomain = formData.store_domain.trim()
-      .replace(/^https?:\/\//, '')
-      .replace(/\/$/, '');
-    
-    if (!cleanDomain.includes('.myshopify.com')) {
-      cleanDomain = `${cleanDomain}.myshopify.com`;
-    }
+    setIsConnecting(true);
 
-    setIsSaving(true);
-    
-    if (config) {
-      // Update existing
-      const { error } = await supabase
-        .from("bot_shopify_integrations")
-        .update({
-          store_domain: cleanDomain,
-          access_token: formData.access_token.trim(),
-          is_active: formData.is_active
-        })
-        .eq("id", config.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("shopify-oauth-start", {
+        body: { 
+          bot_id: botId, 
+          shop_domain: storeDomain.trim() 
+        }
+      });
 
-      if (error) {
-        console.error("Error updating Shopify config:", error);
-        toast.error("Failed to update Shopify integration");
+      if (error) throw error;
+
+      if (data.authorization_url) {
+        // Redirect to Shopify OAuth page
+        window.location.href = data.authorization_url;
       } else {
-        toast.success("Shopify integration updated");
-        setIsDialogOpen(false);
-        fetchConfig();
+        throw new Error("No authorization URL received");
       }
-    } else {
-      // Create new
-      const { error } = await supabase
-        .from("bot_shopify_integrations")
-        .insert({
-          bot_id: botId,
-          store_domain: cleanDomain,
-          access_token: formData.access_token.trim(),
-          is_active: formData.is_active
-        });
-
-      if (error) {
-        console.error("Error creating Shopify config:", error);
-        toast.error("Failed to connect Shopify store");
-      } else {
-        toast.success("Shopify store connected");
-        setIsDialogOpen(false);
-        fetchConfig();
-      }
+    } catch (error) {
+      console.error("OAuth start error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to start Shopify connection");
+      setIsConnecting(false);
     }
-    
-    setIsSaving(false);
-  }
+  }, [botId, storeDomain]);
 
-  async function toggleActive(isActive: boolean) {
+  const toggleActive = useCallback(async (isActive: boolean) => {
     if (!config) return;
 
     const { error } = await supabase
@@ -138,9 +110,9 @@ export function ShopifyIntegration({ botId }: ShopifyIntegrationProps) {
       toast.success(`Shopify integration ${isActive ? "enabled" : "disabled"}`);
       setConfig({ ...config, is_active: isActive });
     }
-  }
+  }, [config]);
 
-  async function testConnection() {
+  const testConnection = useCallback(async () => {
     setIsTesting(true);
     setTestResult(null);
 
@@ -163,9 +135,9 @@ export function ShopifyIntegration({ botId }: ShopifyIntegrationProps) {
     }
 
     setIsTesting(false);
-  }
+  }, [botId]);
 
-  async function disconnectShopify() {
+  const disconnectShopify = useCallback(async () => {
     if (!config) return;
 
     const { error } = await supabase
@@ -179,9 +151,9 @@ export function ShopifyIntegration({ botId }: ShopifyIntegrationProps) {
     } else {
       toast.success("Shopify disconnected");
       setConfig(null);
-      setFormData({ store_domain: "", access_token: "", is_active: true });
+      setIsDialogOpen(false);
     }
-  }
+  }, [config]);
 
   if (isLoading) {
     return (
@@ -241,62 +213,37 @@ export function ShopifyIntegration({ botId }: ShopifyIntegrationProps) {
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm">
                     <Settings className="w-4 h-4 mr-2" />
-                    Configure
+                    Manage
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Shopify Configuration</DialogTitle>
+                    <DialogTitle>Shopify Connection</DialogTitle>
                     <DialogDescription>
-                      Update your Shopify store connection settings
+                      Your store is connected via secure OAuth
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="store-domain">Store Domain</Label>
-                      <Input
-                        id="store-domain"
-                        value={formData.store_domain}
-                        onChange={(e) => setFormData({ ...formData, store_domain: e.target.value })}
-                        placeholder="your-store.myshopify.com"
-                      />
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Check className="w-4 h-4 text-green-500" />
+                        <span className="font-medium">Connected Store</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{config.store_domain}</p>
                     </div>
-                    <div>
-                      <Label htmlFor="access-token">Admin API Access Token</Label>
-                      <Input
-                        id="access-token"
-                        type="password"
-                        value={formData.access_token}
-                        onChange={(e) => setFormData({ ...formData, access_token: e.target.value })}
-                        placeholder="shpat_..."
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        <a 
-                          href="https://help.shopify.com/en/manual/apps/app-types/custom-apps" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline inline-flex items-center gap-1"
-                        >
-                          Learn how to create an access token
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label>Enable Integration</Label>
-                      <Switch
-                        checked={formData.is_active}
-                        onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                      />
-                    </div>
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        To reconnect with different permissions, disconnect first then connect again.
+                      </AlertDescription>
+                    </Alert>
                   </div>
                   <DialogFooter className="flex-col gap-2 sm:flex-row">
                     <Button variant="destructive" onClick={disconnectShopify}>
-                      Disconnect
+                      Disconnect Store
                     </Button>
-                    <Button onClick={saveConfig} disabled={isSaving}>
-                      {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                      Save Changes
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      Close
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -329,70 +276,63 @@ export function ShopifyIntegration({ botId }: ShopifyIntegrationProps) {
             <ShoppingBag className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <h4 className="font-medium mb-2">Connect Your Shopify Store</h4>
             <p className="text-sm text-muted-foreground mb-4">
-              Enable your bot to access order and product information
+              One-click secure connection via Shopify OAuth — no API tokens needed
             </p>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
-                  <ShoppingBag className="w-4 h-4 mr-2" />
-                  Connect Shopify
+                  <Link2 className="w-4 h-4 mr-2" />
+                  Connect Shopify Store
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Connect Shopify Store</DialogTitle>
                   <DialogDescription>
-                    Enter your Shopify store details to enable order tracking and product info
+                    Enter your store domain to start the secure OAuth connection
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="store-domain-new">Store Domain</Label>
-                    <Input
-                      id="store-domain-new"
-                      value={formData.store_domain}
-                      onChange={(e) => setFormData({ ...formData, store_domain: e.target.value })}
-                      placeholder="your-store.myshopify.com"
-                    />
+                    <Label htmlFor="store-domain">Store Domain</Label>
+                    <div className="flex mt-1.5">
+                      <Input
+                        id="store-domain"
+                        value={storeDomain}
+                        onChange={(e) => setStoreDomain(e.target.value)}
+                        placeholder="your-store"
+                        className="rounded-r-none"
+                      />
+                      <span className="inline-flex items-center px-3 bg-muted border border-l-0 border-input rounded-r-md text-sm text-muted-foreground">
+                        .myshopify.com
+                      </span>
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Enter your store name or full myshopify.com domain
-                    </p>
-                  </div>
-                  <div>
-                    <Label htmlFor="access-token-new">Admin API Access Token</Label>
-                    <Input
-                      id="access-token-new"
-                      type="password"
-                      value={formData.access_token}
-                      onChange={(e) => setFormData({ ...formData, access_token: e.target.value })}
-                      placeholder="shpat_..."
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      <a 
-                        href="https://help.shopify.com/en/manual/apps/app-types/custom-apps" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline inline-flex items-center gap-1"
-                      >
-                        Learn how to create an access token
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
+                      Enter your store name (the part before .myshopify.com)
                     </p>
                   </div>
                   <Alert>
-                    <AlertCircle className="h-4 w-4" />
+                    <Check className="h-4 w-4" />
                     <AlertDescription>
-                      Your access token requires read access to Orders and Products
+                      You'll be redirected to Shopify to approve the connection. No manual tokens required!
                     </AlertDescription>
                   </Alert>
+                  <div className="text-xs text-muted-foreground">
+                    <p className="font-medium mb-1">Permissions requested:</p>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      <li>Read orders and fulfillments</li>
+                      <li>Read products and inventory</li>
+                      <li>Read customer information</li>
+                    </ul>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={saveConfig} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    Connect Store
+                  <Button onClick={startOAuthFlow} disabled={isConnecting || !storeDomain.trim()}>
+                    {isConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
+                    Connect to Shopify
                   </Button>
                 </DialogFooter>
               </DialogContent>
