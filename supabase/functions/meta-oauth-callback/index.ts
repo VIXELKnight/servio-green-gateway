@@ -134,6 +134,9 @@ serve(async (req) => {
             console.error("Webhook subscription failed:", e);
           }
 
+          // Token expires in ~60 days
+          const tokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+          
           config = {
             connected: true,
             page_id: pageId,
@@ -142,7 +145,8 @@ serve(async (req) => {
             instagram_username: pageWithInstagram.instagram_business_account.username,
             access_token: pageAccessToken,
             webhook_verify_token: verifyToken,
-            webhook_subscribed: webhookSubscribed
+            webhook_subscribed: webhookSubscribed,
+            token_expires_at: tokenExpiresAt
           };
         }
       }
@@ -161,8 +165,9 @@ serve(async (req) => {
           const phoneNumber = waba.phone_numbers.data[0];
           const verifyToken = "servio_wa_" + stateData.channel_id.slice(0, 8);
 
-          // Get system user token for WhatsApp
-          // Note: For production, you'd need to set up a System User in Meta Business Manager
+          // Token expires in ~60 days
+          const tokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+          
           config = {
             connected: true,
             business_account_id: waba.id,
@@ -171,12 +176,16 @@ serve(async (req) => {
             display_phone_number: phoneNumber.display_phone_number,
             verified_name: phoneNumber.verified_name,
             access_token: userAccessToken,
-            webhook_verify_token: verifyToken
+            webhook_verify_token: verifyToken,
+            token_expires_at: tokenExpiresAt
           };
         }
       }
     }
 
+    // Calculate token expiration (60 days from now)
+    const tokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+    
     // Update channel with new config
     const { error: updateError } = await supabase
       .from("bot_channels")
@@ -185,6 +194,8 @@ serve(async (req) => {
         is_active: true,
         oauth_state: null,
         oauth_expires_at: null,
+        token_expires_at: tokenExpiresAt,
+        token_refreshed_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq("id", stateData.channel_id);

@@ -55,6 +55,8 @@ export type Database = {
           is_active: boolean
           oauth_expires_at: string | null
           oauth_state: string | null
+          token_expires_at: string | null
+          token_refreshed_at: string | null
           updated_at: string
         }
         Insert: {
@@ -67,6 +69,8 @@ export type Database = {
           is_active?: boolean
           oauth_expires_at?: string | null
           oauth_state?: string | null
+          token_expires_at?: string | null
+          token_refreshed_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -79,6 +83,8 @@ export type Database = {
           is_active?: boolean
           oauth_expires_at?: string | null
           oauth_state?: string | null
+          token_expires_at?: string | null
+          token_refreshed_at?: string | null
           updated_at?: string
         }
         Relationships: [
