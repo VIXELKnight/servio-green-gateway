@@ -1,19 +1,19 @@
 project_id = "mjruadmnoaqeprygjcre"
 
 [functions.check-subscription]
-verify_jwt = true
+verify_jwt = false
 
 [functions.create-checkout]
-verify_jwt = true
+verify_jwt = false
 
 [functions.create-embedded-checkout]
-verify_jwt = true
+verify_jwt = false
 
 [functions.customer-portal]
-verify_jwt = true
+verify_jwt = false
 
 [functions.send-reply]
-verify_jwt = true
+verify_jwt = false
 
 [functions.bot-chat]
 verify_jwt = false
@@ -22,19 +22,28 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.shopify-test]
-verify_jwt = true
+verify_jwt = false
 
 [functions.shopify-oauth-start]
-verify_jwt = true
+verify_jwt = false
 
 [functions.shopify-oauth-callback]
 verify_jwt = false
 
 [functions.cancel-subscription]
-verify_jwt = true
+verify_jwt = false
 
 [functions.whatsapp-webhook]
 verify_jwt = false
 
 [functions.instagram-webhook]
+verify_jwt = false
+
+[functions.meta-oauth-start]
+verify_jwt = false
+
+[functions.meta-oauth-callback]
+verify_jwt = false
+
+[functions.meta-disconnect]
 verify_jwt = false

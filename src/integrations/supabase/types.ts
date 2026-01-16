@@ -53,6 +53,8 @@ export type Database = {
           embed_key: string | null
           id: string
           is_active: boolean
+          oauth_expires_at: string | null
+          oauth_state: string | null
           updated_at: string
         }
         Insert: {
@@ -63,6 +65,8 @@ export type Database = {
           embed_key?: string | null
           id?: string
           is_active?: boolean
+          oauth_expires_at?: string | null
+          oauth_state?: string | null
           updated_at?: string
         }
         Update: {
@@ -73,6 +77,8 @@ export type Database = {
           embed_key?: string | null
           id?: string
           is_active?: boolean
+          oauth_expires_at?: string | null
+          oauth_state?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -440,7 +446,47 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      bot_channels_public: {
+        Row: {
+          bot_id: string | null
+          channel_type: string | null
+          config: Json | null
+          created_at: string | null
+          embed_key: string | null
+          id: string | null
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          bot_id?: string | null
+          channel_type?: string | null
+          config?: never
+          created_at?: string | null
+          embed_key?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          bot_id?: string | null
+          channel_type?: string | null
+          config?: never
+          created_at?: string | null
+          embed_key?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_channels_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       has_role: {

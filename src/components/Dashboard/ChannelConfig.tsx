@@ -1,11 +1,18 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Smartphone, Instagram, ExternalLink, CheckCircle, AlertCircle, Copy } from "lucide-react";
+import { Smartphone, Instagram, CheckCircle, AlertCircle, Loader2, Unlink } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -19,222 +26,170 @@ interface ChannelConfigProps {
   onUpdate: () => void;
 }
 
-interface WhatsAppConfig {
-  phone_number_id?: string;
-  access_token?: string;
-  business_account_id?: string;
-  webhook_verify_token?: string;
+interface ChannelConfig {
   connected?: boolean;
-}
-
-interface InstagramConfig {
-  instagram_account_id?: string;
-  access_token?: string;
-  page_id?: string;
-  webhook_verify_token?: string;
-  connected?: boolean;
+  page_name?: string;
+  instagram_username?: string;
+  display_phone_number?: string;
+  verified_name?: string;
+  business_name?: string;
 }
 
 export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
 
-  // WhatsApp config
-  const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig>(
-    (channel.config as WhatsAppConfig) || {}
-  );
+  const config = (channel.config as ChannelConfig) || {};
+  const isConnected = config.connected === true;
 
-  // Instagram config
-  const [instagramConfig, setInstagramConfig] = useState<InstagramConfig>(
-    (channel.config as InstagramConfig) || {}
-  );
-
-  const handleSaveWhatsApp = async () => {
-    setIsLoading(true);
+  const handleConnect = async () => {
+    setIsConnecting(true);
     try {
-      const { error } = await supabase
-        .from("bot_channels")
-        .update({
-          config: {
-            ...whatsappConfig,
-            connected: !!(whatsappConfig.phone_number_id && whatsappConfig.access_token)
-          }
-        })
-        .eq("id", channel.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Please log in to connect your account");
+        return;
+      }
 
-      if (error) throw error;
-      toast.success("WhatsApp configuration saved!");
-      onUpdate();
-      setIsOpen(false);
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/meta-oauth-start`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          channel_id: channel.id,
+          channel_type: channel.channel_type,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to start OAuth");
+      }
+
+      // Redirect to Meta OAuth
+      window.location.href = data.auth_url;
     } catch (error) {
-      console.error("Error saving config:", error);
-      toast.error("Failed to save configuration");
+      console.error("OAuth start error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to start connection");
     } finally {
-      setIsLoading(false);
+      setIsConnecting(false);
     }
   };
 
-  const handleSaveInstagram = async () => {
-    setIsLoading(true);
+  const handleDisconnect = async () => {
+    setIsDisconnecting(true);
     try {
-      const verifyToken = instagramConfig.webhook_verify_token || "servio_ig_" + channel.id.slice(0, 8);
-      const { error } = await supabase
-        .from("bot_channels")
-        .update({
-          config: {
-            ...instagramConfig,
-            webhook_verify_token: verifyToken,
-            connected: !!(instagramConfig.instagram_account_id && instagramConfig.access_token)
-          }
-        })
-        .eq("id", channel.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Please log in");
+        return;
+      }
 
-      if (error) throw error;
-      toast.success("Instagram configuration saved!");
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/meta-disconnect`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ channel_id: channel.id }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to disconnect");
+      }
+
+      toast.success("Account disconnected");
       onUpdate();
-      setIsOpen(false);
     } catch (error) {
-      console.error("Error saving config:", error);
-      toast.error("Failed to save configuration");
+      console.error("Disconnect error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to disconnect");
     } finally {
-      setIsLoading(false);
+      setIsDisconnecting(false);
+      setShowDisconnectDialog(false);
     }
   };
-
-  const isWhatsAppConnected = (channel.config as WhatsAppConfig)?.connected;
-  const isInstagramConnected = (channel.config as InstagramConfig)?.connected;
 
   if (channel.channel_type === "whatsapp") {
     return (
       <>
-        <div className="text-xs text-muted-foreground space-y-2">
-          <div className="flex items-center gap-2">
-            {isWhatsAppConnected ? (
-              <CheckCircle className="w-4 h-4 text-green-500" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-amber-500" />
-            )}
-            <span>{isWhatsAppConnected ? "Connected" : "Not configured"}</span>
-          </div>
-          <Button 
-            variant="link" 
-            className="p-0 h-auto text-xs text-primary"
-            onClick={() => setIsOpen(true)}
-          >
-            <Smartphone className="w-3 h-3 mr-1" />
-            Configure WhatsApp →
-          </Button>
+        <div className="space-y-3">
+          {isConnected ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span className="font-medium">Connected</span>
+              </div>
+              {config.display_phone_number && (
+                <p className="text-xs text-muted-foreground">
+                  📱 {config.display_phone_number}
+                  {config.verified_name && ` (${config.verified_name})`}
+                </p>
+              )}
+              {config.business_name && (
+                <p className="text-xs text-muted-foreground">
+                  🏢 {config.business_name}
+                </p>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="w-full mt-2 text-destructive hover:text-destructive"
+                onClick={() => setShowDisconnectDialog(true)}
+              >
+                <Unlink className="w-4 h-4 mr-2" />
+                Disconnect
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span>Not connected</span>
+              </div>
+              <Button 
+                onClick={handleConnect}
+                disabled={isConnecting}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                {isConnecting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Smartphone className="w-4 h-4 mr-2" />
+                )}
+                Connect WhatsApp
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Connect your WhatsApp Business account with one click
+              </p>
+            </div>
+          )}
         </div>
 
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Smartphone className="w-5 h-5 text-green-500" />
-                WhatsApp Business API Setup
-              </DialogTitle>
-              <DialogDescription>
-                Connect your WhatsApp Business account to enable automated responses.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium text-sm mb-2">Prerequisites:</h4>
-                <ul className="text-xs text-muted-foreground space-y-1">
-                  <li>• Meta Business Account</li>
-                  <li>• WhatsApp Business Platform access</li>
-                  <li>• Verified phone number</li>
-                </ul>
-                <a 
-                  href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary flex items-center gap-1 mt-2 hover:underline"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  View setup guide
-                </a>
-              </div>
-
-              {/* Webhook URL Section */}
-              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-                <h4 className="font-medium text-sm mb-2">Webhook Configuration</h4>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Use this URL in Meta Developer Console → WhatsApp → Configuration → Callback URL:
-                </p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-xs bg-background p-2 rounded border overflow-x-auto">
-                    {`${SUPABASE_URL}/functions/v1/whatsapp-webhook`}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${SUPABASE_URL}/functions/v1/whatsapp-webhook`);
-                      toast.success("Webhook URL copied!");
-                    }}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="wa-phone-id">Phone Number ID</Label>
-                <Input
-                  id="wa-phone-id"
-                  value={whatsappConfig.phone_number_id || ""}
-                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, phone_number_id: e.target.value })}
-                  placeholder="e.g., 123456789012345"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="wa-business-id">Business Account ID</Label>
-                <Input
-                  id="wa-business-id"
-                  value={whatsappConfig.business_account_id || ""}
-                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, business_account_id: e.target.value })}
-                  placeholder="e.g., 123456789012345"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="wa-token">Access Token</Label>
-                <Input
-                  id="wa-token"
-                  type="password"
-                  value={whatsappConfig.access_token || ""}
-                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, access_token: e.target.value })}
-                  placeholder="Your permanent access token"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="wa-verify">Webhook Verify Token</Label>
-                <Input
-                  id="wa-verify"
-                  value={whatsappConfig.webhook_verify_token || "servio_webhook_" + channel.id.slice(0, 8)}
-                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, webhook_verify_token: e.target.value })}
-                  placeholder="Custom verification token"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Use this exact token as "Verify token" when configuring the webhook in Meta Developer Console
-                </p>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveWhatsApp} disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save Configuration"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <AlertDialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disconnect WhatsApp?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will stop your bot from responding to WhatsApp messages. You can reconnect anytime.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDisconnect}
+                disabled={isDisconnecting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </>
     );
   }
@@ -242,137 +197,78 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
   if (channel.channel_type === "instagram") {
     return (
       <>
-        <div className="text-xs text-muted-foreground space-y-2">
-          <div className="flex items-center gap-2">
-            {isInstagramConnected ? (
-              <CheckCircle className="w-4 h-4 text-green-500" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-amber-500" />
-            )}
-            <span>{isInstagramConnected ? "Connected" : "Not configured"}</span>
-          </div>
-          <Button 
-            variant="link" 
-            className="p-0 h-auto text-xs text-primary"
-            onClick={() => setIsOpen(true)}
-          >
-            <Instagram className="w-3 h-3 mr-1" />
-            Configure Instagram →
-          </Button>
+        <div className="space-y-3">
+          {isConnected ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span className="font-medium">Connected</span>
+              </div>
+              {config.instagram_username && (
+                <p className="text-xs text-muted-foreground">
+                  📸 @{config.instagram_username}
+                </p>
+              )}
+              {config.page_name && (
+                <p className="text-xs text-muted-foreground">
+                  📄 {config.page_name}
+                </p>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="w-full mt-2 text-destructive hover:text-destructive"
+                onClick={() => setShowDisconnectDialog(true)}
+              >
+                <Unlink className="w-4 h-4 mr-2" />
+                Disconnect
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span>Not connected</span>
+              </div>
+              <Button 
+                onClick={handleConnect}
+                disabled={isConnecting}
+                className="w-full bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 hover:from-purple-600 hover:via-pink-600 hover:to-orange-600"
+              >
+                {isConnecting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Instagram className="w-4 h-4 mr-2" />
+                )}
+                Connect Instagram
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Connect your Instagram Business account with one click
+              </p>
+            </div>
+          )}
         </div>
 
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Instagram className="w-5 h-5 text-pink-500" />
-                Instagram Messaging API Setup
-              </DialogTitle>
-              <DialogDescription>
-                Connect your Instagram Professional account to enable automated DM responses.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium text-sm mb-2">Prerequisites:</h4>
-                <ul className="text-xs text-muted-foreground space-y-1">
-                  <li>• Instagram Professional/Business Account</li>
-                  <li>• Connected Facebook Page</li>
-                  <li>• Meta Developer App with Instagram API access</li>
-                </ul>
-                <a 
-                  href="https://developers.facebook.com/docs/instagram-api/getting-started" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary flex items-center gap-1 mt-2 hover:underline"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  View setup guide
-                </a>
-              </div>
-
-              {/* Webhook URL Section */}
-              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-                <h4 className="font-medium text-sm mb-2">Webhook Configuration</h4>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Use this URL in Meta Developer Console → Instagram → Webhooks → Callback URL:
-                </p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-xs bg-background p-2 rounded border overflow-x-auto">
-                    {`${SUPABASE_URL}/functions/v1/instagram-webhook`}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${SUPABASE_URL}/functions/v1/instagram-webhook`);
-                      toast.success("Webhook URL copied!");
-                    }}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="ig-account-id">Instagram Account ID</Label>
-                <Input
-                  id="ig-account-id"
-                  value={instagramConfig.instagram_account_id || ""}
-                  onChange={(e) => setInstagramConfig({ ...instagramConfig, instagram_account_id: e.target.value })}
-                  placeholder="e.g., 17841400000000000"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="ig-page-id">Facebook Page ID</Label>
-                <Input
-                  id="ig-page-id"
-                  value={instagramConfig.page_id || ""}
-                  onChange={(e) => setInstagramConfig({ ...instagramConfig, page_id: e.target.value })}
-                  placeholder="e.g., 123456789012345"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="ig-token">Access Token</Label>
-                <Input
-                  id="ig-token"
-                  type="password"
-                  value={instagramConfig.access_token || ""}
-                  onChange={(e) => setInstagramConfig({ ...instagramConfig, access_token: e.target.value })}
-                  placeholder="Your page access token"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Generate a long-lived page access token with instagram_manage_messages permission
-                </p>
-              </div>
-
-              <div>
-                <Label htmlFor="ig-verify">Webhook Verify Token</Label>
-                <Input
-                  id="ig-verify"
-                  value={instagramConfig.webhook_verify_token || "servio_ig_" + channel.id.slice(0, 8)}
-                  onChange={(e) => setInstagramConfig({ ...instagramConfig, webhook_verify_token: e.target.value })}
-                  placeholder="Custom verification token"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Use this exact token as "Verify token" when configuring the webhook in Meta Developer Console
-                </p>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveInstagram} disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save Configuration"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <AlertDialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disconnect Instagram?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will stop your bot from responding to Instagram DMs. You can reconnect anytime.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDisconnect}
+                disabled={isDisconnecting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </>
     );
   }
