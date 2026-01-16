@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.meta-disconnect]
 verify_jwt = false
+
+[functions.meta-token-refresh]
+verify_jwt = false

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Smartphone, Instagram, CheckCircle, AlertCircle, Loader2, Unlink } from "lucide-react";
+import { Smartphone, Instagram, CheckCircle, AlertCircle, Loader2, Unlink, Clock, RefreshCw } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,15 +33,39 @@ interface ChannelConfig {
   display_phone_number?: string;
   verified_name?: string;
   business_name?: string;
+  token_expires_at?: string;
+}
+
+// Helper to check if token is expiring soon (within 7 days)
+function isTokenExpiringSoon(expiresAt?: string): boolean {
+  if (!expiresAt) return false;
+  const expiry = new Date(expiresAt);
+  const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  return expiry < sevenDaysFromNow;
+}
+
+// Format relative time
+function formatExpiry(expiresAt?: string): string {
+  if (!expiresAt) return "";
+  const expiry = new Date(expiresAt);
+  const now = new Date();
+  const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysLeft < 0) return "Expired";
+  if (daysLeft === 0) return "Expires today";
+  if (daysLeft === 1) return "Expires tomorrow";
+  return `Expires in ${daysLeft} days`;
 }
 
 export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
 
   const config = (channel.config as ChannelConfig) || {};
   const isConnected = config.connected === true;
+  const tokenExpiringSoon = isTokenExpiringSoon(config.token_expires_at);
+  const expiryText = formatExpiry(config.token_expires_at);
 
   const handleConnect = async () => {
     setIsConnecting(true);
@@ -80,6 +104,19 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
     }
   };
 
+  const handleRefreshToken = async () => {
+    setIsRefreshing(true);
+    try {
+      // Re-authenticate to refresh the token
+      await handleConnect();
+    } catch (error) {
+      console.error("Token refresh error:", error);
+      toast.error("Failed to refresh token. Please reconnect your account.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleDisconnect = async () => {
     setIsDisconnecting(true);
     try {
@@ -114,6 +151,33 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
     }
   };
 
+  // Token status component
+  const TokenStatus = () => {
+    if (!config.token_expires_at) return null;
+    
+    return (
+      <div className={`flex items-center gap-1 text-xs ${tokenExpiringSoon ? 'text-amber-500' : 'text-muted-foreground'}`}>
+        <Clock className="w-3 h-3" />
+        <span>{expiryText}</span>
+        {tokenExpiringSoon && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 px-1 text-xs"
+            onClick={handleRefreshToken}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <RefreshCw className="w-3 h-3" />
+            )}
+          </Button>
+        )}
+      </div>
+    );
+  };
+
   if (channel.channel_type === "whatsapp") {
     return (
       <>
@@ -135,6 +199,7 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
                   🏢 {config.business_name}
                 </p>
               )}
+              <TokenStatus />
               <Button 
                 variant="outline" 
                 size="sm"
@@ -214,6 +279,7 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
                   📄 {config.page_name}
                 </p>
               )}
+              <TokenStatus />
               <Button 
                 variant="outline" 
                 size="sm"
