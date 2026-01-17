@@ -1,9 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  checkRateLimit, 
+  getClientIdentifier, 
+  RATE_LIMITS 
+} from "../_shared/rate-limit.ts";
 
 const FRONTEND_URL = Deno.env.get("FRONTEND_URL") || "https://servio-green.lovable.app";
 
 serve(async (req) => {
+  // Rate limiting for OAuth callback
+  const clientId = getClientIdentifier(req);
+  const rateLimitResult = await checkRateLimit(clientId, "meta-oauth-callback", RATE_LIMITS.oauth);
+  
+  if (!rateLimitResult.allowed) {
+    console.log(`Rate limit exceeded for ${clientId} on meta-oauth-callback`);
+    return Response.redirect(`${FRONTEND_URL}/dashboard?oauth=error&reason=rate_limited`);
+  }
+
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");

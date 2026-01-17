@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  checkRateLimit, 
+  getClientIdentifier, 
+  rateLimitExceededResponse, 
+  addRateLimitHeaders,
+  RATE_LIMITS 
+} from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +21,6 @@ interface ChatRequest {
   visitor_name?: string;
   visitor_email?: string;
 }
-
 interface ShopifyOrder {
   id: number;
   name: string;
@@ -189,7 +195,19 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Variables for rate limiting outside try block for access in response
+  let rateLimitResult = { allowed: true, currentCount: 0, resetAt: new Date() };
+
   try {
+    // Rate limiting - use visitor_id or IP as identifier
+    const clientId = getClientIdentifier(req);
+    rateLimitResult = await checkRateLimit(clientId, "bot-chat", RATE_LIMITS.chat);
+    
+    if (!rateLimitResult.allowed) {
+      console.log(`Rate limit exceeded for ${clientId} on bot-chat`);
+      return rateLimitExceededResponse(rateLimitResult, corsHeaders);
+    }
+
     const { embed_key, message, conversation_id, visitor_id, visitor_name, visitor_email } = 
       await req.json() as ChatRequest;
 
@@ -428,13 +446,19 @@ Important guidelines:
         .eq("id", currentConversationId);
     }
 
+    const responseHeaders = addRateLimitHeaders(
+      { ...corsHeaders, "Content-Type": "application/json" },
+      rateLimitResult,
+      RATE_LIMITS.chat
+    );
+
     return new Response(
       JSON.stringify({
         response: assistantMessage,
         conversation_id: currentConversationId,
         escalated: shouldEscalate
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: responseHeaders }
     );
 
   } catch (error) {
