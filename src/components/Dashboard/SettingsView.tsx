@@ -1,0 +1,164 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { 
+  User, 
+  Bell, 
+  Shield, 
+  CreditCard,
+  ArrowRight
+} from "lucide-react";
+
+interface SettingsViewProps {
+  userEmail?: string;
+  isSubscribed?: boolean;
+  currentPlan?: string | null;
+  subscriptionEnd?: string | null;
+  onManageSubscription: () => void;
+}
+
+export function SettingsView({ 
+  userEmail, 
+  isSubscribed,
+  currentPlan,
+  subscriptionEnd,
+  onManageSubscription 
+}: SettingsViewProps) {
+  return (
+    <div className="space-y-6 max-w-3xl">
+      {/* Profile */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <User className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Profile</CardTitle>
+              <CardDescription>Manage your account details</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="name">Display Name</Label>
+              <Input id="name" defaultValue={userEmail?.split("@")[0]} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" defaultValue={userEmail} disabled />
+            </div>
+          </div>
+          <Button size="sm">Save Changes</Button>
+        </CardContent>
+      </Card>
+
+      {/* Subscription */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <CreditCard className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Subscription</CardTitle>
+              <CardDescription>Manage your plan and billing</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+            <div>
+              <p className="font-semibold">{isSubscribed ? `${currentPlan || 'Pro'} Plan` : 'Free Plan'}</p>
+              <p className="text-sm text-muted-foreground">
+                {isSubscribed && subscriptionEnd
+                  ? `Renews on ${new Date(subscriptionEnd).toLocaleDateString()}`
+                  : 'Limited features available'}
+              </p>
+            </div>
+            <Button variant={isSubscribed ? "outline" : "default"} onClick={onManageSubscription}>
+              {isSubscribed ? 'Manage' : 'Upgrade'}
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notifications */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Bell className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Notifications</CardTitle>
+              <CardDescription>Configure how you receive alerts</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Email notifications</p>
+              <p className="text-sm text-muted-foreground">Receive updates via email</p>
+            </div>
+            <Switch defaultChecked />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Escalation alerts</p>
+              <p className="text-sm text-muted-foreground">Get notified when tickets need attention</p>
+            </div>
+            <Switch defaultChecked />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Weekly reports</p>
+              <p className="text-sm text-muted-foreground">Receive weekly performance summaries</p>
+            </div>
+            <Switch />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Security */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Shield className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Security</CardTitle>
+              <CardDescription>Protect your account</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Two-factor authentication</p>
+              <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
+            </div>
+            <Button variant="outline" size="sm">Enable</Button>
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Change password</p>
+              <p className="text-sm text-muted-foreground">Update your password regularly</p>
+            </div>
+            <Button variant="outline" size="sm">Change</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
