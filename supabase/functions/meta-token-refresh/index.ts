@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  checkRateLimit, 
+  getClientIdentifier, 
+  rateLimitExceededResponse, 
+  addRateLimitHeaders,
+  RATE_LIMITS 
+} from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +70,15 @@ async function refreshPageToken(pageId: string, userToken: string): Promise<stri
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Rate limiting
+  const clientId = getClientIdentifier(req);
+  const rateLimitResult = await checkRateLimit(clientId, "meta-token-refresh", RATE_LIMITS.default);
+  
+  if (!rateLimitResult.allowed) {
+    console.log(`Rate limit exceeded for ${clientId} on meta-token-refresh`);
+    return rateLimitExceededResponse(rateLimitResult, corsHeaders);
   }
 
   try {
@@ -154,13 +170,19 @@ serve(async (req) => {
       }
     }
 
+    const responseHeaders = addRateLimitHeaders(
+      { ...corsHeaders, "Content-Type": "application/json" },
+      rateLimitResult,
+      RATE_LIMITS.default
+    );
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         checked: channels?.length || 0,
         results 
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: responseHeaders }
     );
 
   } catch (error) {

@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { 
+  checkRateLimit, 
+  getClientIdentifier, 
+  rateLimitExceededResponse, 
+  addRateLimitHeaders,
+  RATE_LIMITS 
+} from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +22,15 @@ const logStep = (step: string, details?: any) => {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Rate limiting
+  const clientId = getClientIdentifier(req);
+  const rateLimitResult = await checkRateLimit(clientId, "create-checkout", RATE_LIMITS.checkout);
+  
+  if (!rateLimitResult.allowed) {
+    logStep("Rate limit exceeded", { clientId });
+    return rateLimitExceededResponse(rateLimitResult, corsHeaders);
   }
 
   const supabaseClient = createClient(
@@ -64,8 +80,14 @@ serve(async (req) => {
 
     logStep("Checkout session created", { sessionId: session.id });
 
+    const responseHeaders = addRateLimitHeaders(
+      { ...corsHeaders, "Content-Type": "application/json" },
+      rateLimitResult,
+      RATE_LIMITS.checkout
+    );
+
     return new Response(JSON.stringify({ url: session.url }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: responseHeaders,
       status: 200,
     });
   } catch (error) {
