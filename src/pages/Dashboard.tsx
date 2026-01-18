@@ -16,6 +16,7 @@ import { Analytics } from "@/components/Dashboard/Analytics";
 import { BotManagement } from "@/components/Dashboard/BotManagement";
 import { SettingsView } from "@/components/Dashboard/SettingsView";
 import { HelpView } from "@/components/Dashboard/HelpView";
+import { OnboardingWizard } from "@/components/Dashboard/OnboardingWizard";
 
 const Dashboard = () => {
   const { user, isLoading: authLoading, signOut, isSubscribed, currentPlan, subscriptionEnd } = useAuth();
@@ -23,6 +24,8 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [currentTab, setCurrentTab] = useState("overview");
   const [botsCount, setBotsCount] = useState(0);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -30,18 +33,46 @@ const Dashboard = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch bots count for overview
+  // Fetch bots count and check onboarding status
   useEffect(() => {
-    async function fetchBotsCount() {
+    async function fetchBotsAndCheckOnboarding() {
       if (!user) return;
-      const { count } = await supabase
+      
+      const { data, count } = await supabase
         .from("bots")
-        .select("*", { count: "exact", head: true })
-        .eq("is_active", true);
-      setBotsCount(count || 0);
+        .select("*", { count: "exact" })
+        .eq("user_id", user.id);
+      
+      const botCount = count || 0;
+      setBotsCount(data?.filter(b => b.is_active).length || 0);
+      
+      // Show onboarding if user has no bots and is subscribed
+      if (botCount === 0 && isSubscribed && !onboardingChecked) {
+        setShowOnboarding(true);
+      }
+      setOnboardingChecked(true);
     }
-    fetchBotsCount();
-  }, [user]);
+    
+    if (!authLoading) {
+      fetchBotsAndCheckOnboarding();
+    }
+  }, [user, isSubscribed, authLoading, onboardingChecked]);
+
+  const handleOnboardingComplete = async () => {
+    setShowOnboarding(false);
+    setCurrentTab("bots");
+    // Refresh bots count
+    const { count } = await supabase
+      .from("bots")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user?.id)
+      .eq("is_active", true);
+    setBotsCount(count || 0);
+  };
+
+  const handleOnboardingSkip = () => {
+    setShowOnboarding(false);
+  };
 
   const handleManageSubscription = async () => {
     try {
@@ -193,6 +224,15 @@ const Dashboard = () => {
             </div>
           </main>
         </div>
+
+        {/* Onboarding Wizard */}
+        {showOnboarding && user && (
+          <OnboardingWizard
+            userId={user.id}
+            onComplete={handleOnboardingComplete}
+            onSkip={handleOnboardingSkip}
+          />
+        )}
       </SidebarProvider>
     </TooltipProvider>
   );

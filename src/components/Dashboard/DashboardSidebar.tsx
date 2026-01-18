@@ -159,20 +159,33 @@ export function DashboardSidebar({
       <SidebarFooter className="border-t border-border p-4">
         {/* Subscription Card */}
         {!isCollapsed && (
-          <div className="mb-4 p-3 rounded-lg bg-accent/50 border border-accent">
+          <div className={cn(
+            "mb-4 p-3 rounded-lg border",
+            isSubscribed 
+              ? "bg-primary/5 border-primary/20" 
+              : "bg-accent/50 border-accent"
+          )}>
             <div className="flex items-center gap-2 mb-2">
-              <CreditCard className="h-4 w-4 text-accent-foreground" />
-              <span className="text-sm font-medium text-accent-foreground">
-                {isSubscribed ? currentPlan || "Pro" : "Free Plan"}
+              <CreditCard className={cn(
+                "h-4 w-4",
+                isSubscribed ? "text-primary" : "text-accent-foreground"
+              )} />
+              <span className={cn(
+                "text-sm font-medium",
+                isSubscribed ? "text-primary" : "text-accent-foreground"
+              )}>
+                {isSubscribed 
+                  ? (currentPlan === "starter" ? "Starter Plan" : currentPlan === "professional" ? "Pro Plan" : "Pro Plan")
+                  : "Free Trial"}
               </span>
             </div>
             <Button
-              variant="outline"
+              variant={isSubscribed ? "outline" : "default"}
               size="sm"
               className="w-full text-xs"
               onClick={onManageSubscription}
             >
-              {isSubscribed ? "Manage" : "Upgrade"}
+              {isSubscribed ? "Manage Subscription" : "Upgrade Now"}
             </Button>
           </div>
         )}
