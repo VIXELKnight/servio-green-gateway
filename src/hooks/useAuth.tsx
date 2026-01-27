@@ -9,6 +9,7 @@ interface AuthContextType {
   isLoading: boolean;
   isSubscribed: boolean;
   currentPlan: PlanKey | null;
+  currentProductId: string | null;
   subscriptionEnd: string | null;
   signOut: () => Promise<void>;
   checkSubscription: () => Promise<void>;
@@ -22,6 +23,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<PlanKey | null>(null);
+  const [currentProductId, setCurrentProductId] = useState<string | null>(null);
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
 
   const checkSubscription = async () => {
@@ -34,8 +36,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsSubscribed(data.subscribed);
       if (data.product_id) {
         setCurrentPlan(getPlanByProductId(data.product_id));
+        setCurrentProductId(data.product_id);
       } else {
         setCurrentPlan(null);
+        setCurrentProductId(null);
       }
       setSubscriptionEnd(data.subscription_end);
     } catch (error) {
@@ -55,6 +59,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setIsSubscribed(false);
           setCurrentPlan(null);
+          setCurrentProductId(null);
           setSubscriptionEnd(null);
         }
       }
@@ -91,7 +96,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       session, 
       isLoading, 
       isSubscribed, 
-      currentPlan, 
+      currentPlan,
+      currentProductId,
       subscriptionEnd,
       signOut, 
       checkSubscription 
