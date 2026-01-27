@@ -19,7 +19,7 @@ import { HelpView } from "@/components/Dashboard/HelpView";
 import { OnboardingWizard } from "@/components/Dashboard/OnboardingWizard";
 
 const Dashboard = () => {
-  const { user, isLoading: authLoading, signOut, isSubscribed, currentPlan, subscriptionEnd } = useAuth();
+  const { user, isLoading: authLoading, signOut, isSubscribed, currentPlan, currentProductId, subscriptionEnd, checkSubscription } = useAuth();
   const { stats, activities, tickets, isLoading: dataLoading, createTicket, updateTicket, deleteTicket, refreshData } = useDashboardData();
   const navigate = useNavigate();
   const [currentTab, setCurrentTab] = useState("overview");
@@ -183,8 +183,10 @@ const Dashboard = () => {
             userEmail={user.email}
             isSubscribed={isSubscribed}
             currentPlan={currentPlan}
+            currentProductId={currentProductId}
             subscriptionEnd={subscriptionEnd}
             onManageSubscription={handleManageSubscription}
+            onSubscriptionChange={checkSubscription}
           />
         );
       case "help":
