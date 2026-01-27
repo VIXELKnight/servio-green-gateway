@@ -9,8 +9,14 @@ import {
   Bell, 
   Shield, 
   CreditCard,
-  ArrowRight
+  ArrowRight,
+  Palette,
+  Monitor,
+  Sun,
+  Moon
 } from "lucide-react";
+import { useThemeContext } from "@/hooks/useTheme";
+import { cn } from "@/lib/utils";
 
 interface SettingsViewProps {
   userEmail?: string;
@@ -27,6 +33,14 @@ export function SettingsView({
   subscriptionEnd,
   onManageSubscription 
 }: SettingsViewProps) {
+  const { theme, setTheme, isDark } = useThemeContext();
+
+  const themeOptions = [
+    { value: "light" as const, label: "Light", icon: Sun },
+    { value: "dark" as const, label: "Dark", icon: Moon },
+    { value: "system" as const, label: "System", icon: Monitor },
+  ];
+
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Profile */}
@@ -54,6 +68,57 @@ export function SettingsView({
             </div>
           </div>
           <Button size="sm">Save Changes</Button>
+        </CardContent>
+      </Card>
+
+      {/* Appearance */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Palette className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Appearance</CardTitle>
+              <CardDescription>Customize how Servio looks on your device</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <Label>Theme</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {themeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setTheme(option.value)}
+                  className={cn(
+                    "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
+                    theme === option.value 
+                      ? "border-primary bg-primary/5" 
+                      : "border-border hover:border-primary/50 hover:bg-muted/50"
+                  )}
+                >
+                  <option.icon className={cn(
+                    "w-5 h-5",
+                    theme === option.value ? "text-primary" : "text-muted-foreground"
+                  )} />
+                  <span className={cn(
+                    "text-sm font-medium",
+                    theme === option.value ? "text-primary" : "text-muted-foreground"
+                  )}>
+                    {option.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {theme === "system" 
+                ? `Using your system preference (currently ${isDark ? "dark" : "light"} mode)`
+                : `Using ${theme} mode`
+              }
+            </p>
+          </div>
         </CardContent>
       </Card>
 

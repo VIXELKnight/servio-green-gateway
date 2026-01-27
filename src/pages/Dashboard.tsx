@@ -218,6 +218,7 @@ const Dashboard = () => {
                 isLoading={isLoading}
                 onRefresh={refreshData}
                 showSearch={currentTab === "tickets"}
+                onNavigate={setCurrentTab}
               />
               
               {renderContent()}
