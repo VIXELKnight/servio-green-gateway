@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Bell, Search } from "lucide-react";
+import { RefreshCw, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { NotificationBell } from "./NotificationBell";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface DashboardHeaderProps {
   title: string;
@@ -8,6 +10,7 @@ interface DashboardHeaderProps {
   isLoading?: boolean;
   onRefresh?: () => void;
   showSearch?: boolean;
+  onNavigate?: (tab: string) => void;
 }
 
 export function DashboardHeader({ 
@@ -15,8 +18,23 @@ export function DashboardHeader({
   description, 
   isLoading, 
   onRefresh,
-  showSearch = false 
+  showSearch = false,
+  onNavigate
 }: DashboardHeaderProps) {
+  const { 
+    notifications, 
+    unreadCount, 
+    markAsRead, 
+    markAllAsRead, 
+    clearNotifications 
+  } = useNotifications();
+
+  const handleNotificationClick = (notification: { conversationId?: string }) => {
+    if (notification.conversationId && onNavigate) {
+      onNavigate("bots");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-6">
       <div>
@@ -37,10 +55,14 @@ export function DashboardHeader({
           </div>
         )}
         
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
-        </Button>
+        <NotificationBell
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onMarkAsRead={markAsRead}
+          onMarkAllAsRead={markAllAsRead}
+          onClear={clearNotifications}
+          onNotificationClick={handleNotificationClick}
+        />
         
         {onRefresh && (
           <Button 
