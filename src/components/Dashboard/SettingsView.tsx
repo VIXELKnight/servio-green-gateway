@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,16 +17,13 @@ import {
 } from "lucide-react";
 import { useThemeContext } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
-import { SubscriptionManagementModal } from "./SubscriptionManagementModal";
 
 interface SettingsViewProps {
   userEmail?: string;
   isSubscribed?: boolean;
   currentPlan?: string | null;
   subscriptionEnd?: string | null;
-  currentProductId?: string | null;
   onManageSubscription: () => void;
-  onSubscriptionChange?: () => void;
 }
 
 export function SettingsView({ 
@@ -35,12 +31,9 @@ export function SettingsView({
   isSubscribed,
   currentPlan,
   subscriptionEnd,
-  currentProductId,
-  onManageSubscription,
-  onSubscriptionChange
+  onManageSubscription
 }: SettingsViewProps) {
   const { theme, setTheme, isDark } = useThemeContext();
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const themeOptions = [
     { value: "light" as const, label: "Light", icon: Sun },
@@ -152,22 +145,13 @@ export function SettingsView({
                   : 'Limited features available'}
               </p>
             </div>
-            <Button variant={isSubscribed ? "outline" : "default"} onClick={() => setShowSubscriptionModal(true)}>
+            <Button variant={isSubscribed ? "outline" : "default"} onClick={onManageSubscription}>
               {isSubscribed ? 'Manage' : 'Upgrade'}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
         </CardContent>
       </Card>
-
-      {/* Subscription Management Modal */}
-      <SubscriptionManagementModal
-        open={showSubscriptionModal}
-        onOpenChange={setShowSubscriptionModal}
-        currentProductId={currentProductId}
-        isSubscribed={isSubscribed}
-        onSubscriptionChange={onSubscriptionChange}
-      />
 
       {/* Notifications */}
       <Card>

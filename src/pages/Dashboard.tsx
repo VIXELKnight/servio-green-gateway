@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -17,6 +16,7 @@ import { BotManagement } from "@/components/Dashboard/BotManagement";
 import { SettingsView } from "@/components/Dashboard/SettingsView";
 import { HelpView } from "@/components/Dashboard/HelpView";
 import { OnboardingWizard } from "@/components/Dashboard/OnboardingWizard";
+import { SubscriptionManagementModal } from "@/components/Dashboard/SubscriptionManagementModal";
 
 const Dashboard = () => {
   const { user, isLoading: authLoading, signOut, isSubscribed, currentPlan, currentProductId, subscriptionEnd, checkSubscription } = useAuth();
@@ -26,6 +26,7 @@ const Dashboard = () => {
   const [botsCount, setBotsCount] = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -74,15 +75,8 @@ const Dashboard = () => {
     setShowOnboarding(false);
   };
 
-  const handleManageSubscription = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke("customer-portal");
-      if (error) throw error;
-      window.open(data.url, "_blank");
-    } catch (error) {
-      console.error("Error opening customer portal:", error);
-      toast.error("Failed to open subscription portal");
-    }
+  const handleManageSubscription = () => {
+    setShowSubscriptionModal(true);
   };
 
   const isLoading = authLoading || dataLoading;
@@ -183,10 +177,8 @@ const Dashboard = () => {
             userEmail={user.email}
             isSubscribed={isSubscribed}
             currentPlan={currentPlan}
-            currentProductId={currentProductId}
             subscriptionEnd={subscriptionEnd}
             onManageSubscription={handleManageSubscription}
-            onSubscriptionChange={checkSubscription}
           />
         );
       case "help":
@@ -236,6 +228,15 @@ const Dashboard = () => {
             onSkip={handleOnboardingSkip}
           />
         )}
+
+        {/* Subscription Management Modal (used by sidebar + settings) */}
+        <SubscriptionManagementModal
+          open={showSubscriptionModal}
+          onOpenChange={setShowSubscriptionModal}
+          currentProductId={currentProductId}
+          isSubscribed={isSubscribed}
+          onSubscriptionChange={checkSubscription}
+        />
       </SidebarProvider>
     </TooltipProvider>
   );
