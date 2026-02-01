@@ -5,12 +5,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { Menu, X, LogOut, Shield, MessageSquare, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { isAdmin } from "@/lib/supabaseRoles";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useThemeContext } from "@/hooks/useTheme";
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
   const { user, signOut } = useAuth();
+  const { isDark } = useThemeContext();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -87,6 +90,12 @@ const Navbar = () => {
                 </a>
               )
             ))}
+
+            {/* Theme Toggle */}
+            <ThemeToggle 
+              variant={isScrolled ? "ghost" : "heroOutline"} 
+              className={isScrolled ? "" : "text-primary-foreground border-primary-foreground/30 hover:bg-primary-foreground/10"}
+            />
             
             {user ? (
               <div className="flex items-center gap-3">
@@ -168,6 +177,12 @@ const Navbar = () => {
                   </a>
                 )
               ))}
+
+              {/* Mobile Theme Toggle */}
+              <div className="flex items-center justify-between px-4 py-2">
+                <span className="text-sm text-muted-foreground">Theme</span>
+                <ThemeToggle showLabel />
+              </div>
               
               <div className="border-t border-border my-2" />
               

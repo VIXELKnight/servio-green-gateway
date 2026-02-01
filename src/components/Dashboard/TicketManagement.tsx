@@ -140,8 +140,10 @@ export const TicketManagement = ({ tickets, onCreateTicket, onUpdateTicket, onDe
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle>Ticket Management</CardTitle>
-            <CardDescription>View, edit, and manage your support tickets</CardDescription>
+            <CardTitle>Support Tickets</CardTitle>
+            <CardDescription>
+              Submit and track requests for help with the Servio platform. Our team will respond within 24 hours.
+            </CardDescription>
           </div>
           <Dialog open={newTicketOpen} onOpenChange={setNewTicketOpen}>
             <DialogTrigger asChild>

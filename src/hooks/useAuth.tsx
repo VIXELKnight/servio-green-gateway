@@ -12,7 +12,7 @@ interface AuthContextType {
   currentProductId: string | null;
   subscriptionEnd: string | null;
   signOut: () => Promise<void>;
-  checkSubscription: () => Promise<void>;
+  checkSubscription: (forceRefresh?: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,16 +26,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentProductId, setCurrentProductId] = useState<string | null>(null);
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
 
-  const checkSubscription = async () => {
+  const checkSubscription = async (forceRefresh = false) => {
     if (!session) return;
     
     try {
+      console.log("[AUTH] Checking subscription status...", forceRefresh ? "(forced)" : "");
       const { data, error } = await supabase.functions.invoke("check-subscription");
       if (error) throw error;
       
+      console.log("[AUTH] Subscription response:", data);
       setIsSubscribed(data.subscribed);
       if (data.product_id) {
-        setCurrentPlan(getPlanByProductId(data.product_id));
+        const plan = getPlanByProductId(data.product_id);
+        console.log("[AUTH] Plan detected:", plan, "from product:", data.product_id);
+        setCurrentPlan(plan);
         setCurrentProductId(data.product_id);
       } else {
         setCurrentPlan(null);
@@ -78,11 +82,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Refresh subscription status periodically
+  // Refresh subscription status periodically (every 30 seconds for faster updates)
   useEffect(() => {
     if (!session) return;
     
-    const interval = setInterval(checkSubscription, 60000); // Every minute
+    const interval = setInterval(() => checkSubscription(false), 30000);
     return () => clearInterval(interval);
   }, [session]);
 
