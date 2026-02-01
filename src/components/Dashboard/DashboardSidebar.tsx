@@ -26,6 +26,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface DashboardSidebarProps {
   currentTab: string;
@@ -190,7 +191,7 @@ export function DashboardSidebar({
           </div>
         )}
 
-        {/* User & Sign Out */}
+        {/* Theme Toggle & User */}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
             <span className="text-sm font-medium text-muted-foreground">
@@ -203,6 +204,7 @@ export function DashboardSidebar({
               <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
             </div>
           )}
+          <ThemeToggle />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onSignOut}>

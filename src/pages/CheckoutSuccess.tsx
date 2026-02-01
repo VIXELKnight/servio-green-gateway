@@ -22,30 +22,35 @@ const CheckoutSuccess = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Auto-refresh subscription status
+  // Auto-refresh subscription status with faster polling
   useEffect(() => {
     if (isCanceled || !user) return;
 
+    let attempts = 0;
+    const maxAttempts = 15; // 15 attempts = 15 seconds max
+
     const refreshStatus = async () => {
       setRefreshing(true);
-      await checkSubscription();
-      setRefreshAttempts((prev) => prev + 1);
+      await checkSubscription(true); // Force refresh
+      attempts++;
+      setRefreshAttempts(attempts);
     };
 
+    // Initial check immediately
     refreshStatus();
 
-    // Poll every 2 seconds for up to 10 attempts (20 seconds total)
+    // Poll every 1 second for faster detection
     const interval = setInterval(() => {
-      if (refreshAttempts >= 10) {
+      if (attempts >= maxAttempts) {
         clearInterval(interval);
         setRefreshing(false);
         return;
       }
       refreshStatus();
-    }, 2000);
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, [user, isCanceled]);
+  }, [user, isCanceled, checkSubscription]);
 
   // Confirm once subscription is detected
   useEffect(() => {
