@@ -14,8 +14,11 @@ import {
   ChevronRight,
   Globe,
   Smartphone,
-  Instagram
+  Instagram,
+  Facebook,
+  Tag
 } from "lucide-react";
+import { TrainingMode } from "./TrainingMode";
 
 interface Conversation {
   id: string;
@@ -24,7 +27,7 @@ interface Conversation {
   visitor_name: string | null;
   visitor_email: string | null;
   status: string;
-  
+  tags: string[];
   escalation_reason: string | null;
   created_at: string;
   updated_at: string;
@@ -35,6 +38,8 @@ interface Message {
   role: string;
   content: string;
   created_at: string;
+  rating?: number;
+  rating_feedback?: string;
 }
 
 interface BotConversationsProps {
@@ -143,6 +148,7 @@ export function BotConversations({ botId }: BotConversationsProps) {
       case "website": return Globe;
       case "whatsapp": return Smartphone;
       case "instagram": return Instagram;
+      case "facebook": return Facebook;
       default: return MessageSquare;
     }
   }
@@ -224,7 +230,21 @@ export function BotConversations({ botId }: BotConversationsProps) {
                       {conv.status}
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  {/* Display tags */}
+                  {conv.tags && conv.tags.length > 0 && (
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      {conv.tags.slice(0, 2).map((tag, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs px-1.5 py-0">
+                          <Tag className="w-2.5 h-2.5 mr-0.5" />
+                          {tag}
+                        </Badge>
+                      ))}
+                      {conv.tags.length > 2 && (
+                        <span className="text-xs text-muted-foreground">+{conv.tags.length - 2}</span>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
                     {formatDistanceToNow(new Date(conv.updated_at), { addSuffix: true })}
                   </p>
                 </div>
@@ -302,6 +322,15 @@ export function BotConversations({ botId }: BotConversationsProps) {
                       <p className="text-xs mt-1 opacity-70">
                         {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
                       </p>
+                      {/* Training Mode - only for assistant messages */}
+                      {msg.role === 'assistant' && (
+                        <TrainingMode 
+                          messageId={msg.id}
+                          currentRating={msg.rating}
+                          currentFeedback={msg.rating_feedback}
+                          onRated={() => fetchMessages(selectedConversation.id)}
+                        />
+                      )}
                     </div>
                   </div>
                 ))}

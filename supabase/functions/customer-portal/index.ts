@@ -47,6 +47,42 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
+    // Check if this is an invoice list request
+    let body: { action?: string } = {};
+    try {
+      body = await req.json();
+    } catch {
+      // No body or invalid JSON - proceed with default portal behavior
+    }
+
+    if (body.action === "list_invoices") {
+      // Fetch invoices for this customer
+      const invoices = await stripe.invoices.list({
+        customer: customerId,
+        limit: 10,
+      });
+
+      logStep("Fetched invoices", { count: invoices.data.length });
+
+      return new Response(JSON.stringify({
+        invoices: invoices.data.map((inv: any) => ({
+          id: inv.id,
+          number: inv.number,
+          status: inv.status,
+          amount_due: inv.amount_due,
+          amount_paid: inv.amount_paid,
+          currency: inv.currency,
+          created: inv.created,
+          hosted_invoice_url: inv.hosted_invoice_url,
+          invoice_pdf: inv.invoice_pdf,
+        }))
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    // Default: create portal session
     const origin = req.headers.get("origin") || "http://localhost:3000";
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,

@@ -105,6 +105,7 @@ export type Database = {
           escalation_reason: string | null
           id: string
           status: string
+          tags: string[] | null
           updated_at: string
           visitor_email: string | null
           visitor_id: string
@@ -117,6 +118,7 @@ export type Database = {
           escalation_reason?: string | null
           id?: string
           status?: string
+          tags?: string[] | null
           updated_at?: string
           visitor_email?: string | null
           visitor_id: string
@@ -129,6 +131,7 @@ export type Database = {
           escalation_reason?: string | null
           id?: string
           status?: string
+          tags?: string[] | null
           updated_at?: string
           visitor_email?: string | null
           visitor_id?: string
@@ -151,6 +154,8 @@ export type Database = {
           created_at: string
           id: string
           metadata: Json | null
+          rating: number | null
+          rating_feedback: string | null
           role: string
         }
         Insert: {
@@ -159,6 +164,8 @@ export type Database = {
           created_at?: string
           id?: string
           metadata?: Json | null
+          rating?: number | null
+          rating_feedback?: string | null
           role: string
         }
         Update: {
@@ -167,6 +174,8 @@ export type Database = {
           created_at?: string
           id?: string
           metadata?: Json | null
+          rating?: number | null
+          rating_feedback?: string | null
           role?: string
         }
         Relationships: [
@@ -368,6 +377,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string | null
+          email_escalation: boolean | null
+          email_new_ticket: boolean | null
+          email_weekly_report: boolean | null
+          id: string
+          slack_escalation: boolean | null
+          slack_webhook_url: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email_escalation?: boolean | null
+          email_new_ticket?: boolean | null
+          email_weekly_report?: boolean | null
+          id?: string
+          slack_escalation?: boolean | null
+          slack_webhook_url?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email_escalation?: boolean | null
+          email_new_ticket?: boolean | null
+          email_weekly_report?: boolean | null
+          id?: string
+          slack_escalation?: boolean | null
+          slack_webhook_url?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
