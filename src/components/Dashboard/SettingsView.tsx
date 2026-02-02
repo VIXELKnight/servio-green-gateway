@@ -2,11 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { 
   User, 
-  Bell, 
   Shield, 
   CreditCard,
   ArrowRight,
@@ -17,6 +15,9 @@ import {
 } from "lucide-react";
 import { useThemeContext } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
+import { InvoiceHistory } from "./InvoiceHistory";
+import { BotUsageMetrics } from "./BotUsageMetrics";
+import { NotificationSettings } from "./NotificationSettings";
 
 interface SettingsViewProps {
   userEmail?: string;
@@ -153,45 +154,14 @@ export function SettingsView({
         </CardContent>
       </Card>
 
-      {/* Notifications */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Bell className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">Notifications</CardTitle>
-              <CardDescription>Configure how you receive alerts</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">Email notifications</p>
-              <p className="text-sm text-muted-foreground">Receive updates via email</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">Escalation alerts</p>
-              <p className="text-sm text-muted-foreground">Get notified when tickets need attention</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">Weekly reports</p>
-              <p className="text-sm text-muted-foreground">Receive weekly performance summaries</p>
-            </div>
-            <Switch />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Invoice History */}
+      <InvoiceHistory />
+
+      {/* Bot Usage Metrics */}
+      <BotUsageMetrics />
+
+      {/* Notification Settings with Slack Integration */}
+      <NotificationSettings />
 
       {/* Security */}
       <Card>

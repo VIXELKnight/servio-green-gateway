@@ -2,7 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Smartphone, Instagram, CheckCircle, AlertCircle, Loader2, Unlink, Clock, RefreshCw } from "lucide-react";
+import { Smartphone, Instagram, Facebook, CheckCircle, AlertCircle, Loader2, Unlink, Clock, RefreshCw } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -321,6 +321,82 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
               <AlertDialogTitle>Disconnect Instagram?</AlertDialogTitle>
               <AlertDialogDescription>
                 This will stop your bot from responding to Instagram DMs. You can reconnect anytime.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDisconnect}
+                disabled={isDisconnecting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
+    );
+  }
+
+  // Facebook Messenger channel config
+  if (channel.channel_type === "facebook") {
+    return (
+      <>
+        <div className="space-y-3">
+          {isConnected ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span className="font-medium">Connected</span>
+              </div>
+              {config.page_name && (
+                <p className="text-xs text-muted-foreground">
+                  📄 {config.page_name}
+                </p>
+              )}
+              <TokenStatus />
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="w-full mt-2 text-destructive hover:text-destructive"
+                onClick={() => setShowDisconnectDialog(true)}
+              >
+                <Unlink className="w-4 h-4 mr-2" />
+                Disconnect
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span>Not connected</span>
+              </div>
+              <Button 
+                onClick={handleConnect}
+                disabled={isConnecting}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                {isConnecting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Facebook className="w-4 h-4 mr-2" />
+                )}
+                Connect Facebook Messenger
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Connect your Facebook Page to respond to Messenger messages
+              </p>
+            </div>
+          )}
+        </div>
+
+        <AlertDialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disconnect Facebook Messenger?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will stop your bot from responding to Messenger messages. You can reconnect anytime.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

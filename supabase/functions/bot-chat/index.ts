@@ -160,6 +160,35 @@ function detectShopifyIntent(message: string): { type: 'order' | 'product' | nul
   return { type: null, query: '' };
 }
 
+// Auto-tag conversation based on message content
+function detectConversationTags(message: string): string[] {
+  const lowerMessage = message.toLowerCase();
+  const tags: string[] = [];
+  
+  const tagPatterns: Record<string, RegExp[]> = {
+    "billing": [/bill/i, /invoice/i, /payment/i, /charge/i, /refund/i, /subscription/i],
+    "shipping": [/ship/i, /deliver/i, /track/i, /package/i, /order status/i],
+    "technical": [/bug/i, /error/i, /not working/i, /broken/i, /issue/i, /problem/i],
+    "pricing": [/price/i, /cost/i, /how much/i, /discount/i, /coupon/i],
+    "account": [/account/i, /login/i, /password/i, /profile/i, /sign up/i],
+    "product": [/product/i, /item/i, /stock/i, /available/i, /feature/i],
+    "complaint": [/angry/i, /frustrated/i, /terrible/i, /worst/i, /complaint/i, /disappointed/i],
+    "cancellation": [/cancel/i, /return/i, /refund/i, /end subscription/i],
+    "general": [/hello/i, /hi/i, /help/i, /question/i],
+  };
+  
+  for (const [tag, patterns] of Object.entries(tagPatterns)) {
+    for (const pattern of patterns) {
+      if (pattern.test(lowerMessage)) {
+        tags.push(tag);
+        break;
+      }
+    }
+  }
+  
+  return tags.slice(0, 3); // Max 3 tags
+}
+
 // Format order info for AI context
 function formatOrderContext(order: ShopifyOrder): string {
   const items = order.line_items.map(item => `${item.quantity}x ${item.title}`).join(', ');
@@ -288,6 +317,25 @@ serve(async (req) => {
       role: "user",
       content: message
     });
+
+    // Auto-tag the conversation based on message content
+    const newTags = detectConversationTags(message);
+    if (newTags.length > 0) {
+      // Get existing tags and merge with new ones
+      const { data: convData } = await supabase
+        .from("bot_conversations")
+        .select("tags")
+        .eq("id", currentConversationId)
+        .single();
+      
+      const existingTags = (convData?.tags as string[]) || [];
+      const mergedTags = [...new Set([...existingTags, ...newTags])].slice(0, 5);
+      
+      await supabase
+        .from("bot_conversations")
+        .update({ tags: mergedTags })
+        .eq("id", currentConversationId);
+    }
 
     // Get conversation history
     const { data: history } = await supabase

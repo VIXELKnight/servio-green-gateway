@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, Loader2, ArrowRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fireCheckoutConfetti } from "@/lib/confetti";
 
 const CheckoutSuccess = () => {
   const navigate = useNavigate();
@@ -57,6 +58,8 @@ const CheckoutSuccess = () => {
     if (isSubscribed && !confirmed) {
       setConfirmed(true);
       setRefreshing(false);
+      // Fire confetti celebration!
+      fireCheckoutConfetti();
     }
   }, [isSubscribed, confirmed]);
 
