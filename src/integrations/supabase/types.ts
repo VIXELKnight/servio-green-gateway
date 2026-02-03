@@ -149,6 +149,8 @@ export type Database = {
       }
       bot_messages: {
         Row: {
+          attachment_type: string | null
+          attachment_url: string | null
           content: string
           conversation_id: string
           created_at: string
@@ -156,9 +158,12 @@ export type Database = {
           metadata: Json | null
           rating: number | null
           rating_feedback: string | null
+          read_at: string | null
           role: string
         }
         Insert: {
+          attachment_type?: string | null
+          attachment_url?: string | null
           content: string
           conversation_id: string
           created_at?: string
@@ -166,9 +171,12 @@ export type Database = {
           metadata?: Json | null
           rating?: number | null
           rating_feedback?: string | null
+          read_at?: string | null
           role: string
         }
         Update: {
+          attachment_type?: string | null
+          attachment_url?: string | null
           content?: string
           conversation_id?: string
           created_at?: string
@@ -176,6 +184,7 @@ export type Database = {
           metadata?: Json | null
           rating?: number | null
           rating_feedback?: string | null
+          read_at?: string | null
           role?: string
         }
         Relationships: [
@@ -228,12 +237,15 @@ export type Database = {
       }
       bots: {
         Row: {
+          avatar_url: string | null
           created_at: string
           description: string | null
           id: string
           instructions: string
           is_active: boolean
           name: string
+          out_of_office_enabled: boolean | null
+          out_of_office_message: string | null
           triage_enabled: boolean
           triage_threshold: number | null
           updated_at: string
@@ -241,12 +253,15 @@ export type Database = {
           welcome_message: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
           instructions?: string
           is_active?: boolean
           name: string
+          out_of_office_enabled?: boolean | null
+          out_of_office_message?: string | null
           triage_enabled?: boolean
           triage_threshold?: number | null
           updated_at?: string
@@ -254,12 +269,15 @@ export type Database = {
           welcome_message?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
           instructions?: string
           is_active?: boolean
           name?: string
+          out_of_office_enabled?: boolean | null
+          out_of_office_message?: string | null
           triage_enabled?: boolean
           triage_threshold?: number | null
           updated_at?: string
@@ -414,6 +432,45 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          step_bot_created: boolean | null
+          step_channel_connected: boolean | null
+          step_first_conversation: boolean | null
+          step_knowledge_added: boolean | null
+          step_widget_tested: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          step_bot_created?: boolean | null
+          step_channel_connected?: boolean | null
+          step_first_conversation?: boolean | null
+          step_knowledge_added?: boolean | null
+          step_widget_tested?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          step_bot_created?: boolean | null
+          step_channel_connected?: boolean | null
+          step_first_conversation?: boolean | null
+          step_knowledge_added?: boolean | null
+          step_widget_tested?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -467,6 +524,54 @@ export type Database = {
           window_start?: string
         }
         Relationships: []
+      }
+      scheduled_messages: {
+        Row: {
+          bot_id: string
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          scheduled_for: string
+          sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          bot_id: string
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          scheduled_for: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          bot_id?: string
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_messages_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "bot_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       support_tickets: {
         Row: {

@@ -39,6 +39,12 @@ verify_jwt = false
 [functions.instagram-webhook]
 verify_jwt = false
 
+[functions.facebook-webhook]
+verify_jwt = false
+
+[functions.slack-notify]
+verify_jwt = false
+
 [functions.meta-oauth-start]
 verify_jwt = false
 
