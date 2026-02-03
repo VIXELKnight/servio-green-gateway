@@ -5,6 +5,7 @@ import { useDashboardData } from "@/hooks/useDashboardData";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useDashboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 // Dashboard components
 import { DashboardSidebar } from "@/components/Dashboard/DashboardSidebar";
@@ -78,6 +79,9 @@ const Dashboard = () => {
   const handleManageSubscription = () => {
     setShowSubscriptionModal(true);
   };
+
+  // Enable keyboard shortcuts
+  useDashboardShortcuts(setCurrentTab);
 
   const isLoading = authLoading || dataLoading;
 

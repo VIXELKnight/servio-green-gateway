@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { 
   Mail, 
   Clock, 
@@ -9,10 +11,17 @@ import {
   Zap,
   ArrowUpRight,
   Plus,
-  Sparkles
+  Sparkles,
+  Check,
+  BookOpen,
+  Plug,
+  TestTube,
+  ChevronRight,
+  X
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DashboardOverviewProps {
   stats: {
@@ -40,6 +49,108 @@ const getActivityIcon = (type: string) => {
     default: return MessageSquare;
   }
 };
+
+// Inline onboarding checklist component
+function OnboardingChecklist({ onNavigate }: { onNavigate: (tab: string) => void }) {
+  const [progress, setProgress] = useState({
+    bot_created: false,
+    knowledge_added: false,
+    channel_connected: false,
+    first_conversation: false,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDismissed, setIsDismissed] = useState(false);
+
+  useEffect(() => {
+    checkProgress();
+  }, []);
+
+  async function checkProgress() {
+    try {
+      const [botsResult, knowledgeResult, channelsResult, conversationsResult] = await Promise.all([
+        supabase.from("bots").select("id").limit(1),
+        supabase.from("knowledge_base").select("id").limit(1),
+        supabase.from("bot_channels").select("id").eq("is_active", true).limit(1),
+        supabase.from("bot_conversations").select("id").limit(1),
+      ]);
+
+      setProgress({
+        bot_created: (botsResult.data?.length ?? 0) > 0,
+        knowledge_added: (knowledgeResult.data?.length ?? 0) > 0,
+        channel_connected: (channelsResult.data?.length ?? 0) > 0,
+        first_conversation: (conversationsResult.data?.length ?? 0) > 0,
+      });
+    } catch (error) {
+      console.error("Error checking onboarding progress:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const steps = [
+    { id: "bot_created", title: "Create Bot", icon: Bot, completed: progress.bot_created, tab: "bots" },
+    { id: "knowledge_added", title: "Add Knowledge", icon: BookOpen, completed: progress.knowledge_added, tab: "bots" },
+    { id: "channel_connected", title: "Connect Channel", icon: Plug, completed: progress.channel_connected, tab: "bots" },
+    { id: "first_conversation", title: "First Chat", icon: MessageSquare, completed: progress.first_conversation, tab: "bots" },
+  ];
+
+  const completedCount = steps.filter(s => s.completed).length;
+  const progressPercent = (completedCount / steps.length) * 100;
+
+  if (isDismissed || progressPercent === 100 || isLoading) return null;
+
+  return (
+    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Getting Started</CardTitle>
+              <CardDescription className="text-xs">{completedCount}/{steps.length} completed</CardDescription>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsDismissed(true)}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+        <Progress value={progressPercent} className="h-1.5 mt-3" />
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {steps.map((step) => (
+            <button
+              key={step.id}
+              onClick={() => !step.completed && onNavigate(step.tab)}
+              disabled={step.completed}
+              className={cn(
+                "flex flex-col items-center gap-2 p-3 rounded-lg transition-colors text-center",
+                step.completed 
+                  ? "bg-muted/30 cursor-default" 
+                  : "bg-card border hover:border-primary/50 cursor-pointer"
+              )}
+            >
+              <div className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center",
+                step.completed ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              )}>
+                {step.completed ? <Check className="w-4 h-4" /> : <step.icon className="w-4 h-4" />}
+              </div>
+              <span className={cn(
+                "text-xs font-medium",
+                step.completed && "text-muted-foreground line-through"
+              )}>
+                {step.title}
+              </span>
+            </button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function DashboardOverview({ stats, activities, botsCount = 0, onNavigate }: DashboardOverviewProps) {
   const statCards = [
@@ -82,9 +193,12 @@ export function DashboardOverview({ stats, activities, botsCount = 0, onNavigate
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
+      {/* Onboarding Checklist */}
+      <OnboardingChecklist onNavigate={onNavigate} />
+      
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {statCards.map((stat, index) => (
           <Card 
             key={stat.label} 

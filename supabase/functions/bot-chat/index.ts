@@ -277,6 +277,10 @@ serve(async (req) => {
       );
     }
 
+    // Check for out-of-office auto-reply
+    const outOfOfficeEnabled = (bot as any).out_of_office_enabled ?? false;
+    const outOfOfficeMessage = (bot as any).out_of_office_message ?? "";
+
     // Get Shopify integration if available
     const { data: shopifyConfig } = await supabase
       .from("bot_shopify_integrations")
@@ -500,11 +504,23 @@ Important guidelines:
       RATE_LIMITS.chat
     );
 
+    // Include out-of-office notice if enabled
+    let finalMessage = assistantMessage;
+    if (outOfOfficeEnabled && outOfOfficeMessage) {
+      finalMessage = `${outOfOfficeMessage}\n\n---\n\n${assistantMessage}`;
+    }
+
     return new Response(
       JSON.stringify({
-        response: assistantMessage,
+        response: finalMessage,
         conversation_id: currentConversationId,
-        escalated: shouldEscalate
+        escalated: shouldEscalate,
+        out_of_office: outOfOfficeEnabled,
+        // Metadata for typing indicators and read receipts
+        metadata: {
+          message_id: currentConversationId,
+          timestamp: new Date().toISOString(),
+        }
       }),
       { headers: responseHeaders }
     );
