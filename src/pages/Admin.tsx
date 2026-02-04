@@ -8,22 +8,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { 
-  LayoutDashboard, 
   Users, 
   MessageSquare, 
   Settings, 
   LogOut,
   Mail,
-  Clock,
   CheckCircle,
   AlertCircle,
   Trash2,
   Eye,
   Reply,
-  Home
+  Home,
+  MessagesSquare
 } from 'lucide-react';
 import ReplyModal from '@/components/Admin/ReplyModal';
 import SettingsPanel from '@/components/Admin/SettingsPanel';
+import { SupportChatPanel } from '@/components/Admin/SupportChatPanel';
 import {
   Table,
   TableBody,
@@ -206,11 +206,15 @@ export default function AdminPage() {
         </div>
 
         {/* Main Content */}
-        <Tabs defaultValue="inbox" className="space-y-4">
+        <Tabs defaultValue="support" className="space-y-4">
           <TabsList>
+            <TabsTrigger value="support" className="flex items-center gap-2">
+              <MessagesSquare className="w-4 h-4" />
+              Support Chats
+            </TabsTrigger>
             <TabsTrigger value="inbox" className="flex items-center gap-2">
               <Mail className="w-4 h-4" />
-              Inbox
+              Contact Inbox
             </TabsTrigger>
             <TabsTrigger value="customers" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
@@ -221,6 +225,10 @@ export default function AdminPage() {
               Settings
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="support">
+            <SupportChatPanel />
+          </TabsContent>
 
           <TabsContent value="inbox">
             <Card>

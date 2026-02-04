@@ -3,13 +3,13 @@ import {
   LayoutDashboard, 
   Bot, 
   BarChart3, 
-  Ticket, 
   Settings,
   CreditCard,
   LogOut,
   ChevronLeft,
   ChevronRight,
-  HelpCircle
+  HelpCircle,
+  MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -42,12 +42,12 @@ const mainNavItems = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "bots", label: "AI Bots", icon: Bot },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
-  { id: "tickets", label: "Tickets", icon: Ticket },
 ];
 
 const secondaryNavItems = [
+  { id: "support", label: "Get Support", icon: MessageCircle },
   { id: "settings", label: "Settings", icon: Settings },
-  { id: "help", label: "Help & Support", icon: HelpCircle },
+  { id: "help", label: "Help Center", icon: HelpCircle },
 ];
 
 export function DashboardSidebar({
