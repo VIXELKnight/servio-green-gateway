@@ -11,7 +11,7 @@ import { useDashboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { DashboardSidebar } from "@/components/Dashboard/DashboardSidebar";
 import { DashboardHeader } from "@/components/Dashboard/DashboardHeader";
 import { DashboardOverview } from "@/components/Dashboard/DashboardOverview";
-import { TicketManagement } from "@/components/Dashboard/TicketManagement";
+import { SupportChat } from "@/components/Dashboard/SupportChat";
 import { Analytics } from "@/components/Dashboard/Analytics";
 import { BotManagement } from "@/components/Dashboard/BotManagement";
 import { SettingsView } from "@/components/Dashboard/SettingsView";
@@ -21,7 +21,7 @@ import { SubscriptionManagementModal } from "@/components/Dashboard/Subscription
 
 const Dashboard = () => {
   const { user, isLoading: authLoading, signOut, isSubscribed, currentPlan, currentProductId, subscriptionEnd, checkSubscription } = useAuth();
-  const { stats, activities, tickets, isLoading: dataLoading, createTicket, updateTicket, deleteTicket, refreshData } = useDashboardData();
+  const { stats, activities, isLoading: dataLoading, refreshData } = useDashboardData();
   const navigate = useNavigate();
   const [currentTab, setCurrentTab] = useState("overview");
   const [botsCount, setBotsCount] = useState(0);
@@ -115,10 +115,10 @@ const Dashboard = () => {
           title: "Analytics", 
           description: "Track your support performance and trends" 
         };
-      case "tickets":
+      case "support":
         return { 
-          title: "Tickets", 
-          description: "View and manage customer support tickets" 
+          title: "Support Chat", 
+          description: "Get help from our AI and support team" 
         };
       case "settings":
         return { 
@@ -152,29 +152,17 @@ const Dashboard = () => {
         return (
           <Analytics 
             stats={{
-              total_tickets: stats.activeTickets + (tickets?.filter(t => t.status === 'resolved').length || 0),
-              resolved_tickets: tickets?.filter(t => t.status === 'resolved').length || 0,
+              total_tickets: stats.totalTickets,
+              resolved_tickets: stats.resolvedTickets,
               avg_response_time_minutes: stats.avgResponseTime,
               satisfaction_rate: stats.satisfactionRate,
               emails_processed: stats.emailsProcessed,
             }}
-            tickets={tickets?.map(t => ({
-              id: t.id,
-              created_at: t.createdAt,
-              status: t.status,
-              resolved_at: t.resolvedAt,
-            })) || []}
+            tickets={[]}
           />
         );
-      case "tickets":
-        return (
-          <TicketManagement 
-            tickets={tickets}
-            onCreateTicket={createTicket}
-            onUpdateTicket={updateTicket}
-            onDeleteTicket={deleteTicket}
-          />
-        );
+      case "support":
+        return <SupportChat />;
       case "settings":
         return (
           <SettingsView 
