@@ -1,33 +1,16 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { 
-  checkRateLimit, 
-  getClientIdentifier, 
-  rateLimitExceededResponse, 
-  addRateLimitHeaders,
-  RATE_LIMITS 
-} from "../_shared/rate-limit.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Rate limiting
-    const clientId = getClientIdentifier(req);
-    const rateLimitResult = await checkRateLimit(clientId, "meta-oauth-start", RATE_LIMITS.oauth);
-    
-    if (!rateLimitResult.allowed) {
-      console.log(`Rate limit exceeded for ${clientId} on meta-oauth-start`);
-      return rateLimitExceededResponse(rateLimitResult, corsHeaders);
-    }
-
     // Verify user authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -46,18 +29,20 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
     
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claims, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
     
-    if (claimsError || !claims?.claims?.sub) {
+    if (userError || !user) {
+      console.error("[META-OAUTH-START] Auth error:", userError);
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claims.claims.sub;
+    const userId = user.id;
     const { channel_id, channel_type } = await req.json();
+
+    console.log("[META-OAUTH-START] Request for channel:", channel_type, "by user:", userId);
 
     if (!channel_id || !channel_type) {
       return new Response(
@@ -76,6 +61,7 @@ serve(async (req) => {
       .single();
 
     if (channelError || !channel || channel.bots.user_id !== userId) {
+      console.error("[META-OAUTH-START] Channel access denied:", channelError);
       return new Response(
         JSON.stringify({ error: "Channel not found or access denied" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -86,8 +72,9 @@ serve(async (req) => {
     const redirectUri = `${supabaseUrl}/functions/v1/meta-oauth-callback`;
 
     if (!metaAppId) {
+      console.error("[META-OAUTH-START] META_APP_ID not configured");
       return new Response(
-        JSON.stringify({ error: "Meta App ID not configured" }),
+        JSON.stringify({ error: "Meta App ID not configured. Please contact support." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -102,7 +89,7 @@ serve(async (req) => {
       .from("bot_channels")
       .update({ 
         oauth_state: encodedState,
-        oauth_expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 min expiry
+        oauth_expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
       })
       .eq("id", channel_id);
 
@@ -110,7 +97,6 @@ serve(async (req) => {
     let scopes: string;
     
     if (channel_type === "instagram") {
-      // Instagram Business requires these scopes
       scopes = [
         "instagram_basic",
         "instagram_manage_messages", 
@@ -119,14 +105,12 @@ serve(async (req) => {
         "pages_read_engagement"
       ].join(",");
     } else if (channel_type === "whatsapp") {
-      // WhatsApp Business requires these scopes
       scopes = [
         "whatsapp_business_management",
         "whatsapp_business_messaging",
         "business_management"
       ].join(",");
     } else if (channel_type === "facebook") {
-      // Facebook Messenger requires these scopes
       scopes = [
         "pages_show_list",
         "pages_messaging",
@@ -147,19 +131,15 @@ serve(async (req) => {
     authUrl.searchParams.set("scope", scopes);
     authUrl.searchParams.set("response_type", "code");
 
-    const responseHeaders = addRateLimitHeaders(
-      { ...corsHeaders, "Content-Type": "application/json" },
-      rateLimitResult,
-      RATE_LIMITS.oauth
-    );
+    console.log("[META-OAUTH-START] Generated OAuth URL for", channel_type);
 
     return new Response(
       JSON.stringify({ auth_url: authUrl.toString() }),
-      { headers: responseHeaders }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("Meta OAuth start error:", error);
+    console.error("[META-OAUTH-START] Error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
