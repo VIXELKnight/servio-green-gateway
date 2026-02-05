@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -13,21 +13,16 @@ export interface RateLimitConfig {
 
 // Default limits for different endpoint types
 export const RATE_LIMITS = {
-  oauth: { maxRequests: 10, windowMinutes: 1 },     // 10 req/min - OAuth is sensitive
-  chat: { maxRequests: 30, windowMinutes: 1 },      // 30 req/min - Allow conversation flow
-  checkout: { maxRequests: 10, windowMinutes: 1 },  // 10 req/min - Payment endpoints
-  webhook: { maxRequests: 100, windowMinutes: 1 },  // 100 req/min - Webhooks need higher limits
-  default: { maxRequests: 60, windowMinutes: 1 },   // 60 req/min - General API
+  oauth: { maxRequests: 10, windowMinutes: 1 },
+  chat: { maxRequests: 30, windowMinutes: 1 },
+  checkout: { maxRequests: 10, windowMinutes: 1 },
+  webhook: { maxRequests: 100, windowMinutes: 1 },
+  default: { maxRequests: 60, windowMinutes: 1 },
 } as const;
 
-/**
- * Extract client identifier from request
- * Prioritizes: X-Forwarded-For > X-Real-IP > CF-Connecting-IP > fallback
- */
 export function getClientIdentifier(req: Request, fallback?: string): string {
   const forwardedFor = req.headers.get("x-forwarded-for");
   if (forwardedFor) {
-    // Get the first IP in the chain (original client)
     return forwardedFor.split(",")[0].trim();
   }
   
@@ -37,13 +32,9 @@ export function getClientIdentifier(req: Request, fallback?: string): string {
   const cfIp = req.headers.get("cf-connecting-ip");
   if (cfIp) return cfIp;
   
-  // Fallback to provided identifier or anonymous
   return fallback || "anonymous";
 }
 
-/**
- * Check rate limit using database function
- */
 export async function checkRateLimit(
   identifier: string,
   endpoint: string,
@@ -64,7 +55,6 @@ export async function checkRateLimit(
     
     if (error) {
       console.error("Rate limit check error:", error);
-      // Fail open - allow the request if rate limiting fails
       return { allowed: true, currentCount: 0, resetAt: new Date() };
     }
     
@@ -77,14 +67,10 @@ export async function checkRateLimit(
     };
   } catch (error) {
     console.error("Rate limit check failed:", error);
-    // Fail open
     return { allowed: true, currentCount: 0, resetAt: new Date() };
   }
 }
 
-/**
- * Create a rate limit exceeded response with proper headers
- */
 export function rateLimitExceededResponse(
   result: RateLimitResult,
   corsHeaders: Record<string, string>
@@ -111,9 +97,6 @@ export function rateLimitExceededResponse(
   );
 }
 
-/**
- * Add rate limit headers to successful response
- */
 export function addRateLimitHeaders(
   headers: Record<string, string>,
   result: RateLimitResult,
