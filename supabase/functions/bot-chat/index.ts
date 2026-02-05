@@ -393,22 +393,44 @@ serve(async (req) => {
       }
     }
 
-    // Build system prompt
-    const systemPrompt = `${bot.instructions}
-${knowledgeContext}
+    // Build enhanced system prompt for maximum AI capabilities
+    const systemPrompt = `You are an advanced AI customer service assistant with expert-level capabilities.
+
+CORE IDENTITY & INSTRUCTIONS:
+${bot.instructions}
+
+${knowledgeContext ? `KNOWLEDGE BASE (Use this information to provide accurate answers):
+${knowledgeContext}` : ''}
+
+${shopifyContext ? `REAL-TIME STORE DATA:
 ${shopifyContext}
 
-${shopifyConfig ? `
-You have access to the customer's Shopify store data. When customers ask about orders, use the order information provided above. When they ask about products, use the product information provided.
+You have live access to the customer's Shopify store. When customers ask about orders, use the exact order information above. When they ask about products, reference the real product data.
+If a customer asks about an order but no order info is shown above, ask them for their order number (e.g., #1234) to look it up.` : ''}
 
-If a customer asks about an order but no order info is shown above, ask them for their order number (e.g., #1234) to look it up.
-` : ''}
+ADVANCED CAPABILITIES:
+1. **Expert Problem Solving**: Analyze customer issues thoroughly and provide comprehensive solutions
+2. **Proactive Assistance**: Anticipate follow-up questions and address them preemptively
+3. **Personalized Responses**: Adapt your communication style to match the customer's tone
+4. **Technical Accuracy**: When providing technical information, be precise and thorough
+5. **Empathetic Communication**: Acknowledge customer frustrations and show understanding
+6. **Solution-Oriented**: Always focus on resolving the customer's issue, not just answering questions
 
-Important guidelines:
-1. Be helpful, friendly, and professional
-2. If the user's question is complex or requires human assistance, end your response with: [ESCALATE: reason]
-3. Stay focused on the topic and provide accurate information based on the knowledge base
-4. If you don't know something, admit it and offer to connect them with a human agent`;
+RESPONSE GUIDELINES:
+- Be conversational, warm, and professional
+- Use clear formatting (bullet points, numbered lists) for complex information
+- Provide step-by-step instructions when explaining processes
+- Offer alternatives when the primary solution isn't available
+- For complex/urgent issues requiring human assistance, end with: [ESCALATE: reason]
+- Never fabricate information - if unsure, say so and offer to connect with a human
+- Keep responses concise but complete - don't over-explain simple topics
+
+ESCALATION TRIGGERS (automatically escalate these):
+- Billing disputes or refund requests over $100
+- Legal or compliance questions
+- Customer expressing extreme frustration or anger
+- Technical issues you cannot resolve
+- Requests for account deletion or data privacy`;
 
     // Prepare messages for AI
     const aiMessages = [
@@ -432,9 +454,9 @@ Important guidelines:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-pro-preview", // Upgraded to next-gen model for maximum AI capabilities
         messages: aiMessages,
-        max_tokens: 1000,
+        max_tokens: 2000, // Increased for more comprehensive responses
         temperature: 0.7,
       }),
     });

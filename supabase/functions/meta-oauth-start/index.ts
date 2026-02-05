@@ -125,6 +125,14 @@ serve(async (req) => {
         "whatsapp_business_messaging",
         "business_management"
       ].join(",");
+    } else if (channel_type === "facebook") {
+      // Facebook Messenger requires these scopes
+      scopes = [
+        "pages_show_list",
+        "pages_messaging",
+        "pages_read_engagement",
+        "pages_manage_metadata"
+      ].join(",");
     } else {
       return new Response(
         JSON.stringify({ error: "Invalid channel type for OAuth" }),
