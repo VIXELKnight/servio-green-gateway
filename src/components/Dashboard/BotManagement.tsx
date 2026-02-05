@@ -17,21 +17,32 @@ import {
   Settings, 
   MessageSquare, 
   Globe, 
-  Instagram, 
-  Smartphone,
   Code,
   Copy,
   Check,
   Trash2,
   BookOpen,
   ShoppingBag,
-  Facebook
+  Share2,
+  Palette,
+  AlertTriangle
 } from "lucide-react";
 import { KnowledgeBase } from "./KnowledgeBase";
 import { BotConversations } from "./BotConversations";
-import { ChannelConfigDialog } from "./ChannelConfig";
 import { ShopifyIntegration } from "./ShopifyIntegration";
 import { EmbedWidget } from "./EmbedWidget";
+import { SocialChannelsSection } from "./SocialChannelsSection";
+import { BotCustomization } from "./BotCustomization";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface BotData {
   id: string;
@@ -43,6 +54,9 @@ interface BotData {
   triage_enabled: boolean;
   triage_threshold: number;
   created_at: string;
+  avatar_url?: string | null;
+  out_of_office_enabled?: boolean;
+  out_of_office_message?: string | null;
 }
 
 interface ChannelData {
@@ -61,8 +75,10 @@ export function BotManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBot, setSelectedBot] = useState<BotData | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const [newBot, setNewBot] = useState({
     name: "",
@@ -139,7 +155,7 @@ export function BotManagement() {
       return;
     }
 
-    // Create default channels including Facebook
+    // Create default channels
     await supabase.from("bot_channels").insert([
       { bot_id: data.id, channel_type: "website" },
       { bot_id: data.id, channel_type: "whatsapp" },
@@ -179,23 +195,76 @@ export function BotManagement() {
     } else {
       toast.success("Bot updated successfully");
       fetchBots();
-      setIsEditDialogOpen(false);
+      setIsSettingsDialogOpen(false);
     }
   }
 
-  async function deleteBot(botId: string) {
-    const { error } = await supabase
-      .from("bots")
-      .delete()
-      .eq("id", botId);
+  async function deleteBot() {
+    if (!selectedBot) return;
+    
+    setIsDeleting(true);
+    
+    try {
+      // First delete related channels
+      await supabase
+        .from("bot_channels")
+        .delete()
+        .eq("bot_id", selectedBot.id);
 
-    if (error) {
-      console.error("Error deleting bot:", error);
-      toast.error("Failed to delete bot");
-    } else {
-      toast.success("Bot deleted");
+      // Delete related conversations and messages
+      const { data: conversations } = await supabase
+        .from("bot_conversations")
+        .select("id")
+        .eq("bot_id", selectedBot.id);
+
+      if (conversations && conversations.length > 0) {
+        const convIds = conversations.map(c => c.id);
+        await supabase
+          .from("bot_messages")
+          .delete()
+          .in("conversation_id", convIds);
+        
+        await supabase
+          .from("bot_conversations")
+          .delete()
+          .eq("bot_id", selectedBot.id);
+      }
+
+      // Delete knowledge base entries
+      await supabase
+        .from("knowledge_base")
+        .delete()
+        .eq("bot_id", selectedBot.id);
+
+      // Delete Shopify integrations
+      await supabase
+        .from("bot_shopify_integrations")
+        .delete()
+        .eq("bot_id", selectedBot.id);
+
+      // Delete scheduled messages
+      await supabase
+        .from("scheduled_messages")
+        .delete()
+        .eq("bot_id", selectedBot.id);
+
+      // Finally delete the bot
+      const { error } = await supabase
+        .from("bots")
+        .delete()
+        .eq("id", selectedBot.id);
+
+      if (error) throw error;
+
+      toast.success("Bot deleted successfully");
       setSelectedBot(null);
+      setShowDeleteDialog(false);
       fetchBots();
+    } catch (error) {
+      console.error("Error deleting bot:", error);
+      toast.error("Failed to delete bot. Please try again.");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -222,16 +291,6 @@ export function BotManagement() {
     setTimeout(() => setCopiedKey(null), 2000);
   }
 
-  function getChannelIcon(type: string) {
-    switch (type) {
-      case "website": return Globe;
-      case "whatsapp": return Smartphone;
-      case "instagram": return Instagram;
-      case "facebook": return Facebook;
-      default: return MessageSquare;
-    }
-  }
-
   // Show loading while checking subscription status
   if (authLoading) {
     return (
@@ -255,6 +314,13 @@ export function BotManagement() {
       </Card>
     );
   }
+
+  const websiteChannel = channels.find(c => c.channel_type === "website");
+  const socialChannels = channels.filter(c => 
+    c.channel_type === "whatsapp" || 
+    c.channel_type === "instagram" || 
+    c.channel_type === "facebook"
+  );
 
   return (
     <div className="space-y-6">
@@ -396,7 +462,7 @@ export function BotManagement() {
                       <CardDescription>{selectedBot.description || "No description"}</CardDescription>
                     </div>
                     <div className="flex gap-2">
-                      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                      <Dialog open={isSettingsDialogOpen} onOpenChange={setIsSettingsDialogOpen}>
                         <DialogTrigger asChild>
                           <Button variant="outline" size="sm">
                             <Settings className="w-4 h-4 mr-2" />
@@ -458,8 +524,14 @@ export function BotManagement() {
                               />
                             </div>
                           </div>
-                          <DialogFooter>
-                            <Button variant="destructive" onClick={() => deleteBot(selectedBot.id)}>
+                          <DialogFooter className="flex-col gap-2 sm:flex-row">
+                            <Button 
+                              variant="destructive" 
+                              onClick={() => {
+                                setIsSettingsDialogOpen(false);
+                                setShowDeleteDialog(true);
+                              }}
+                            >
                               <Trash2 className="w-4 h-4 mr-2" />
                               Delete Bot
                             </Button>
@@ -472,18 +544,26 @@ export function BotManagement() {
                 </CardHeader>
                 <CardContent>
                   <Tabs defaultValue="channels" className="space-y-4">
-                    <TabsList>
+                    <TabsList className="flex-wrap">
                       <TabsTrigger value="channels" className="flex items-center gap-2">
                         <Globe className="w-4 h-4" />
-                        Channels
+                        Website
                       </TabsTrigger>
-                      <TabsTrigger value="knowledge" className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4" />
-                        Knowledge Base
+                      <TabsTrigger value="social" className="flex items-center gap-2">
+                        <Share2 className="w-4 h-4" />
+                        Social
                       </TabsTrigger>
                       <TabsTrigger value="shopify" className="flex items-center gap-2">
                         <ShoppingBag className="w-4 h-4" />
                         Shopify
+                      </TabsTrigger>
+                      <TabsTrigger value="knowledge" className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4" />
+                        Knowledge
+                      </TabsTrigger>
+                      <TabsTrigger value="customize" className="flex items-center gap-2">
+                        <Palette className="w-4 h-4" />
+                        Customize
                       </TabsTrigger>
                       <TabsTrigger value="conversations" className="flex items-center gap-2">
                         <MessageSquare className="w-4 h-4" />
@@ -491,82 +571,95 @@ export function BotManagement() {
                       </TabsTrigger>
                     </TabsList>
 
+                    {/* Website Channel Tab */}
                     <TabsContent value="channels" className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {channels.map((channel) => {
-                          const Icon = getChannelIcon(channel.channel_type);
-                          return (
-                            <Card key={channel.id}>
-                              <CardContent className="p-4">
-                                <div className="flex items-center justify-between mb-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                      <Icon className="w-5 h-5 text-primary" />
-                                    </div>
-                                    <div>
-                                      <p className="font-medium capitalize">{channel.channel_type}</p>
-                                      <Badge variant={channel.is_active ? "default" : "secondary"} className="text-xs">
-                                        {channel.is_active ? "Active" : "Inactive"}
-                                      </Badge>
-                                    </div>
+                      {websiteChannel ? (
+                        <div className="space-y-4">
+                          <Card>
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <Globe className="w-5 h-5 text-primary" />
                                   </div>
-                                  <Switch
-                                    checked={channel.is_active}
-                                    onCheckedChange={(checked) => toggleChannel(channel.id, checked)}
-                                  />
+                                  <div>
+                                    <p className="font-medium">Website Widget</p>
+                                    <Badge variant={websiteChannel.is_active ? "default" : "secondary"} className="text-xs">
+                                      {websiteChannel.is_active ? "Active" : "Inactive"}
+                                    </Badge>
+                                  </div>
                                 </div>
+                                <Switch
+                                  checked={websiteChannel.is_active}
+                                  onCheckedChange={(checked) => toggleChannel(websiteChannel.id, checked)}
+                                />
+                              </div>
 
-                                {channel.channel_type === "website" && (
-                                  <div className="space-y-2">
-                                    <Label className="text-xs">Embed Code</Label>
-                                    <div className="flex gap-2">
-                                      <code className="flex-1 text-xs bg-muted p-2 rounded truncate">
-                                        &lt;script data-embed-key="{channel.embed_key.slice(0, 8)}..."&gt;
-                                      </code>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => copyEmbedCode(channel.embed_key)}
-                                      >
-                                        {copiedKey === channel.embed_key ? (
-                                          <Check className="w-4 h-4" />
-                                        ) : (
-                                          <Copy className="w-4 h-4" />
-                                        )}
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
+                              <div className="space-y-2">
+                                <Label className="text-xs">Embed Code</Label>
+                                <div className="flex gap-2">
+                                  <code className="flex-1 text-xs bg-muted p-2 rounded truncate">
+                                    &lt;script data-embed-key="{websiteChannel.embed_key.slice(0, 8)}..."&gt;
+                                  </code>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => copyEmbedCode(websiteChannel.embed_key)}
+                                  >
+                                    {copiedKey === websiteChannel.embed_key ? (
+                                      <Check className="w-4 h-4" />
+                                    ) : (
+                                      <Copy className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
 
-                                {(channel.channel_type === "whatsapp" || channel.channel_type === "instagram" || channel.channel_type === "facebook") && (
-                                  <ChannelConfigDialog 
-                                    channel={channel} 
-                                    onUpdate={() => selectedBot && fetchChannels(selectedBot.id)} 
-                                  />
-                                )}
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </div>
-
-                      {channels.some(c => c.channel_type === 'website' && c.is_active) && (
-                        <EmbedWidget 
-                          embedKey={channels.find(c => c.channel_type === 'website')?.embed_key || ""}
-                          botName={selectedBot.name}
-                          isActive={channels.find(c => c.channel_type === 'website')?.is_active || false}
-                        />
+                          {websiteChannel.is_active && (
+                            <EmbedWidget 
+                              embedKey={websiteChannel.embed_key}
+                              botName={selectedBot.name}
+                              isActive={websiteChannel.is_active}
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <Card>
+                          <CardContent className="p-8 text-center">
+                            <Globe className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                            <p className="text-muted-foreground">No website channel configured</p>
+                          </CardContent>
+                        </Card>
                       )}
                     </TabsContent>
 
-                    <TabsContent value="knowledge">
-                      <KnowledgeBase botId={selectedBot.id} />
+                    {/* Social Channels Tab */}
+                    <TabsContent value="social" className="space-y-4">
+                      <SocialChannelsSection 
+                        channels={socialChannels}
+                        onUpdate={() => selectedBot && fetchChannels(selectedBot.id)}
+                        onToggle={toggleChannel}
+                      />
                     </TabsContent>
 
+                    {/* Shopify Tab */}
                     <TabsContent value="shopify">
                       <ShopifyIntegration botId={selectedBot.id} />
                     </TabsContent>
 
+                    {/* Knowledge Base Tab */}
+                    <TabsContent value="knowledge">
+                      <KnowledgeBase botId={selectedBot.id} />
+                    </TabsContent>
+
+                    {/* Customize Tab */}
+                    <TabsContent value="customize">
+                      <BotCustomization botId={selectedBot.id} />
+                    </TabsContent>
+
+                    {/* Conversations Tab */}
                     <TabsContent value="conversations">
                       <BotConversations botId={selectedBot.id} />
                     </TabsContent>
@@ -577,6 +670,38 @@ export function BotManagement() {
           )}
         </div>
       )}
+
+      {/* Delete Bot Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Delete Bot?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{selectedBot?.name}" and all its data including:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>All conversations and messages</li>
+                <li>Knowledge base entries</li>
+                <li>Channel configurations</li>
+                <li>Shopify integrations</li>
+              </ul>
+              <p className="mt-2 font-medium">This action cannot be undone.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteBot}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete Bot"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
