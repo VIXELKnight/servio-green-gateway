@@ -24,7 +24,8 @@ import {
   Check,
   Trash2,
   BookOpen,
-  ShoppingBag
+  ShoppingBag,
+  Facebook
 } from "lucide-react";
 import { KnowledgeBase } from "./KnowledgeBase";
 import { BotConversations } from "./BotConversations";
@@ -54,7 +55,7 @@ interface ChannelData {
 }
 
 export function BotManagement() {
-  const { user, isSubscribed } = useAuth();
+  const { user, isSubscribed, isLoading: authLoading } = useAuth();
   const [bots, setBots] = useState<BotData[]>([]);
   const [channels, setChannels] = useState<ChannelData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -138,11 +139,12 @@ export function BotManagement() {
       return;
     }
 
-    // Create default channels
+    // Create default channels including Facebook
     await supabase.from("bot_channels").insert([
       { bot_id: data.id, channel_type: "website" },
       { bot_id: data.id, channel_type: "whatsapp" },
-      { bot_id: data.id, channel_type: "instagram" }
+      { bot_id: data.id, channel_type: "instagram" },
+      { bot_id: data.id, channel_type: "facebook" }
     ]);
 
     toast.success("Bot created successfully");
@@ -225,8 +227,18 @@ export function BotManagement() {
       case "website": return Globe;
       case "whatsapp": return Smartphone;
       case "instagram": return Instagram;
+      case "facebook": return Facebook;
       default: return MessageSquare;
     }
+  }
+
+  // Show loading while checking subscription status
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   if (!isSubscribed) {
@@ -526,7 +538,7 @@ export function BotManagement() {
                                   </div>
                                 )}
 
-                                {(channel.channel_type === "whatsapp" || channel.channel_type === "instagram") && (
+                                {(channel.channel_type === "whatsapp" || channel.channel_type === "instagram" || channel.channel_type === "facebook") && (
                                   <ChannelConfigDialog 
                                     channel={channel} 
                                     onUpdate={() => selectedBot && fetchChannels(selectedBot.id)} 
