@@ -13,20 +13,13 @@ import {
   Monitor,
   Sun,
   Moon,
-  Bot,
-  Clock,
-  FileText,
-  Keyboard
+  Keyboard,
+  Bell
 } from "lucide-react";
 import { useThemeContext } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import { InvoiceHistory } from "./InvoiceHistory";
-import { BotUsageMetrics } from "./BotUsageMetrics";
 import { NotificationSettings } from "./NotificationSettings";
-import { BotAvatarSettings } from "./BotAvatarSettings";
-import { OutOfOfficeSettings } from "./OutOfOfficeSettings";
-import { ScheduledMessages } from "./ScheduledMessages";
-import { ChatTranscripts } from "./ChatTranscripts";
 import { KeyboardShortcutsHelp } from "@/hooks/useKeyboardShortcuts";
 
 interface SettingsViewProps {
@@ -40,8 +33,6 @@ interface SettingsViewProps {
 const dashboardShortcuts = [
   { key: "h", handler: () => {}, description: "Go to Home/Overview" },
   { key: "b", handler: () => {}, description: "Go to Bots" },
-  { key: "c", handler: () => {}, description: "Go to Conversations" },
-  { key: "k", handler: () => {}, description: "Go to Knowledge Base" },
   { key: "a", handler: () => {}, description: "Go to Analytics" },
   { key: "s", handler: () => {}, description: "Go to Settings" },
   { key: "/", handler: () => {}, description: "Focus Search" },
@@ -64,16 +55,15 @@ export function SettingsView({
   ];
 
   return (
-    <Tabs defaultValue="general" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
-        <TabsTrigger value="general">General</TabsTrigger>
-        <TabsTrigger value="bots">Bot Settings</TabsTrigger>
-        <TabsTrigger value="automation">Automation</TabsTrigger>
-        <TabsTrigger value="data">Data & Export</TabsTrigger>
+    <Tabs defaultValue="account" className="space-y-6">
+      <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
+        <TabsTrigger value="account">Account</TabsTrigger>
+        <TabsTrigger value="billing">Billing</TabsTrigger>
+        <TabsTrigger value="notifications">Notifications</TabsTrigger>
       </TabsList>
 
-      {/* General Settings Tab */}
-      <TabsContent value="general" className="space-y-6 max-w-3xl">
+      {/* Account Tab */}
+      <TabsContent value="account" className="space-y-6 max-w-3xl">
         {/* Profile */}
         <Card>
           <CardHeader>
@@ -171,40 +161,6 @@ export function SettingsView({
           </CardContent>
         </Card>
 
-        {/* Subscription */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <CreditCard className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Subscription</CardTitle>
-                <CardDescription>Manage your plan and billing</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-              <div>
-                <p className="font-semibold">{isSubscribed ? `${currentPlan || 'Pro'} Plan` : 'Free Plan'}</p>
-                <p className="text-sm text-muted-foreground">
-                  {isSubscribed && subscriptionEnd
-                    ? `Renews on ${new Date(subscriptionEnd).toLocaleDateString()}`
-                    : 'Limited features available'}
-                </p>
-              </div>
-              <Button variant={isSubscribed ? "outline" : "default"} onClick={onManageSubscription}>
-                {isSubscribed ? 'Manage' : 'Upgrade'}
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Invoice History */}
-        <InvoiceHistory />
-
         {/* Security */}
         <Card>
           <CardHeader>
@@ -238,24 +194,46 @@ export function SettingsView({
         </Card>
       </TabsContent>
 
-      {/* Bot Settings Tab */}
-      <TabsContent value="bots" className="space-y-6">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <BotAvatarSettings />
-          <OutOfOfficeSettings />
-        </div>
-        <BotUsageMetrics />
+      {/* Billing Tab */}
+      <TabsContent value="billing" className="space-y-6 max-w-3xl">
+        {/* Subscription */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <CreditCard className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Subscription</CardTitle>
+                <CardDescription>Manage your plan and billing</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+              <div>
+                <p className="font-semibold">{isSubscribed ? `${currentPlan || 'Pro'} Plan` : 'Free Plan'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {isSubscribed && subscriptionEnd
+                    ? `Renews on ${new Date(subscriptionEnd).toLocaleDateString()}`
+                    : 'Limited features available'}
+                </p>
+              </div>
+              <Button variant={isSubscribed ? "outline" : "default"} onClick={onManageSubscription}>
+                {isSubscribed ? 'Manage' : 'Upgrade'}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Invoice History */}
+        <InvoiceHistory />
+      </TabsContent>
+
+      {/* Notifications Tab */}
+      <TabsContent value="notifications" className="space-y-6 max-w-3xl">
         <NotificationSettings />
-      </TabsContent>
-
-      {/* Automation Tab */}
-      <TabsContent value="automation" className="space-y-6">
-        <ScheduledMessages />
-      </TabsContent>
-
-      {/* Data & Export Tab */}
-      <TabsContent value="data" className="space-y-6">
-        <ChatTranscripts />
       </TabsContent>
     </Tabs>
   );
