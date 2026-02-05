@@ -1,11 +1,4 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { 
-  checkRateLimit, 
-  getClientIdentifier, 
-  rateLimitExceededResponse, 
-  addRateLimitHeaders,
-  RATE_LIMITS 
-} from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,189 +14,12 @@ interface ChatRequest {
   visitor_email?: string;
 }
 
-interface ShopifyOrder {
-  id: number;
-  name: string;
-  email: string;
-  created_at: string;
-  financial_status: string;
-  fulfillment_status: string | null;
-  total_price: string;
-  currency: string;
-  line_items: Array<{ title: string; quantity: number }>;
-  shipping_address?: { city: string; country: string };
-  tracking_urls?: string[];
-}
-
-interface ShopifyProduct {
-  id: number;
-  title: string;
-  body_html: string;
-  vendor: string;
-  product_type: string;
-  variants: Array<{
-    title: string;
-    price: string;
-    inventory_quantity: number;
-    available: boolean;
-  }>;
-}
-
-async function fetchShopifyOrder(storeDomain: string, accessToken: string, query: string): Promise<ShopifyOrder | null> {
-  try {
-    const isOrderNumber = query.startsWith('#') || /^\d+$/.test(query);
-    const searchQuery = isOrderNumber ? query.replace('#', '') : query;
-    
-    const url = isOrderNumber
-      ? `https://${storeDomain}/admin/api/2024-01/orders.json?name=${encodeURIComponent(query)}&status=any`
-      : `https://${storeDomain}/admin/api/2024-01/orders.json?email=${encodeURIComponent(searchQuery)}&status=any&limit=5`;
-
-    const response = await fetch(url, {
-      headers: {
-        "X-Shopify-Access-Token": accessToken,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    const orders = data.orders || [];
-    return orders.length > 0 ? orders[0] : null;
-  } catch (error) {
-    console.error("Error fetching Shopify order:", error);
-    return null;
-  }
-}
-
-async function searchShopifyProducts(storeDomain: string, accessToken: string, query: string): Promise<ShopifyProduct[]> {
-  try {
-    const response = await fetch(
-      `https://${storeDomain}/admin/api/2024-01/products.json?title=${encodeURIComponent(query)}&limit=5`,
-      {
-        headers: {
-          "X-Shopify-Access-Token": accessToken,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data.products || [];
-  } catch (error) {
-    console.error("Error searching Shopify products:", error);
-    return [];
-  }
-}
-
-function detectShopifyIntent(message: string): { type: 'order' | 'product' | null; query: string } {
-  const orderPatterns = [
-    /order\s*#?\s*(\d+)/i,
-    /order\s+status/i,
-    /tracking/i,
-    /where\s+is\s+my\s+(order|package|shipment)/i,
-    /shipped/i,
-    /delivery/i,
-    /#(\d+)/,
-  ];
-  
-  for (const pattern of orderPatterns) {
-    const match = message.match(pattern);
-    if (match) {
-      const orderNum = match[1] || '';
-      return { type: 'order', query: orderNum ? `#${orderNum}` : '' };
-    }
-  }
-  
-  const productPatterns = [/do you have/i, /in stock/i, /available/i, /price of/i, /how much/i, /tell me about/i, /product/i];
-  const lowerMessage = message.toLowerCase();
-  
-  for (const pattern of productPatterns) {
-    if (pattern.test(lowerMessage)) {
-      const words = message.split(/\s+/).filter(w => 
-        w.length > 3 && 
-        !['have', 'stock', 'available', 'price', 'much', 'tell', 'about', 'product', 'what', 'does', 'your'].includes(w.toLowerCase())
-      );
-      return { type: 'product', query: words.slice(0, 3).join(' ') };
-    }
-  }
-  
-  return { type: null, query: '' };
-}
-
-function detectConversationTags(message: string): string[] {
-  const lowerMessage = message.toLowerCase();
-  const tags: string[] = [];
-  
-  const tagPatterns: Record<string, RegExp[]> = {
-    "billing": [/bill/i, /invoice/i, /payment/i, /charge/i, /refund/i, /subscription/i],
-    "shipping": [/ship/i, /deliver/i, /track/i, /package/i, /order status/i],
-    "technical": [/bug/i, /error/i, /not working/i, /broken/i, /issue/i, /problem/i],
-    "pricing": [/price/i, /cost/i, /how much/i, /discount/i, /coupon/i],
-    "account": [/account/i, /login/i, /password/i, /profile/i, /sign up/i],
-    "product": [/product/i, /item/i, /stock/i, /available/i, /feature/i],
-    "complaint": [/angry/i, /frustrated/i, /terrible/i, /worst/i, /complaint/i, /disappointed/i],
-    "cancellation": [/cancel/i, /return/i, /refund/i, /end subscription/i],
-    "general": [/hello/i, /hi/i, /help/i, /question/i],
-  };
-  
-  for (const [tag, patterns] of Object.entries(tagPatterns)) {
-    for (const pattern of patterns) {
-      if (pattern.test(lowerMessage)) {
-        tags.push(tag);
-        break;
-      }
-    }
-  }
-  
-  return tags.slice(0, 3);
-}
-
-function formatOrderContext(order: ShopifyOrder): string {
-  const items = order.line_items.map(item => `${item.quantity}x ${item.title}`).join(', ');
-  const fulfillment = order.fulfillment_status || 'unfulfilled';
-  
-  return `
-ORDER INFORMATION (Order ${order.name}):
-- Status: ${order.financial_status} / ${fulfillment}
-- Items: ${items}
-- Total: ${order.currency} ${order.total_price}
-- Placed: ${new Date(order.created_at).toLocaleDateString()}
-${order.shipping_address ? `- Shipping to: ${order.shipping_address.city}, ${order.shipping_address.country}` : ''}
-${order.tracking_urls?.length ? `- Tracking: ${order.tracking_urls[0]}` : ''}
-`;
-}
-
-function formatProductContext(products: ShopifyProduct[]): string {
-  if (products.length === 0) return '';
-  
-  return `
-PRODUCT INFORMATION:
-${products.map(p => {
-    const variant = p.variants[0];
-    const inStock = p.variants.some(v => v.inventory_quantity > 0);
-    return `- ${p.title}: $${variant?.price || 'N/A'} (${inStock ? 'In Stock' : 'Out of Stock'})`;
-  }).join('\n')}
-`;
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  let rateLimitResult = { allowed: true, currentCount: 0, resetAt: new Date() };
-
   try {
-    const clientId = getClientIdentifier(req);
-    rateLimitResult = await checkRateLimit(clientId, "bot-chat", RATE_LIMITS.chat);
-    
-    if (!rateLimitResult.allowed) {
-      console.log(`Rate limit exceeded for ${clientId} on bot-chat`);
-      return rateLimitExceededResponse(rateLimitResult, corsHeaders);
-    }
-
     const { embed_key, message, conversation_id, visitor_id, visitor_name, visitor_email } = 
       await req.json() as ChatRequest;
 
@@ -220,6 +36,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Get channel and bot info
     const { data: channel, error: channelError } = await supabase
       .from("bot_channels")
       .select("*, bots(*)")
@@ -243,16 +60,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const outOfOfficeEnabled = (bot as any).out_of_office_enabled ?? false;
-    const outOfOfficeMessage = (bot as any).out_of_office_message ?? "";
-
-    const { data: shopifyConfig } = await supabase
-      .from("bot_shopify_integrations")
-      .select("*")
-      .eq("bot_id", bot.id)
-      .eq("is_active", true)
-      .maybeSingle();
-
+    // Get or create conversation
     let currentConversationId = conversation_id;
     
     if (!currentConversationId) {
@@ -278,29 +86,14 @@ Deno.serve(async (req) => {
       currentConversationId = newConv.id;
     }
 
+    // Store user message
     await supabase.from("bot_messages").insert({
       conversation_id: currentConversationId,
       role: "user",
       content: message
     });
 
-    const newTags = detectConversationTags(message);
-    if (newTags.length > 0) {
-      const { data: convData } = await supabase
-        .from("bot_conversations")
-        .select("tags")
-        .eq("id", currentConversationId)
-        .single();
-      
-      const existingTags = (convData?.tags as string[]) || [];
-      const mergedTags = [...new Set([...existingTags, ...newTags])].slice(0, 5);
-      
-      await supabase
-        .from("bot_conversations")
-        .update({ tags: mergedTags })
-        .eq("id", currentConversationId);
-    }
-
+    // Get conversation history
     const { data: history } = await supabase
       .from("bot_messages")
       .select("role, content")
@@ -308,6 +101,7 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: true })
       .limit(20);
 
+    // Get knowledge base entries
     const { data: knowledgeEntries } = await supabase
       .from("knowledge_base")
       .select("title, content")
@@ -316,54 +110,17 @@ Deno.serve(async (req) => {
 
     let knowledgeContext = "";
     if (knowledgeEntries && knowledgeEntries.length > 0) {
-      knowledgeContext = "\n\nRelevant Knowledge Base:\n" + 
+      knowledgeContext = "\n\nKnowledge Base:\n" + 
         knowledgeEntries.map(e => `- ${e.title}: ${e.content}`).join("\n");
     }
 
-    let shopifyContext = "";
-    if (shopifyConfig) {
-      const intent = detectShopifyIntent(message);
-      
-      if (intent.type === 'order') {
-        const orderQuery = intent.query || visitor_email || '';
-        if (orderQuery) {
-          const order = await fetchShopifyOrder(
-            shopifyConfig.store_domain, 
-            shopifyConfig.access_token, 
-            orderQuery
-          );
-          if (order) {
-            shopifyContext = formatOrderContext(order);
-          }
-        }
-      } else if (intent.type === 'product' && intent.query) {
-        const products = await searchShopifyProducts(
-          shopifyConfig.store_domain,
-          shopifyConfig.access_token,
-          intent.query
-        );
-        if (products.length > 0) {
-          shopifyContext = formatProductContext(products);
-        }
-      }
-    }
+    const systemPrompt = `You are an AI customer service assistant.
 
-    const systemPrompt = `You are an advanced AI customer service assistant.
-
-CORE INSTRUCTIONS:
+INSTRUCTIONS:
 ${bot.instructions}
+${knowledgeContext}
 
-${knowledgeContext ? `KNOWLEDGE BASE:\n${knowledgeContext}` : ''}
-
-${shopifyContext ? `REAL-TIME STORE DATA:\n${shopifyContext}` : ''}
-
-RESPONSE GUIDELINES:
-- Be conversational, warm, and professional
-- Use clear formatting for complex information
-- Provide step-by-step instructions when needed
-- For complex/urgent issues requiring human assistance, end with: [ESCALATE: reason]
-- Never fabricate information
-- Keep responses concise but complete`;
+Be helpful, professional, and concise. If you cannot help, say so clearly.`;
 
     const aiMessages = [
       { role: "system", content: systemPrompt },
@@ -387,7 +144,7 @@ RESPONSE GUIDELINES:
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: aiMessages,
-        max_tokens: 1500,
+        max_tokens: 1000,
         temperature: 0.7,
       }),
     });
@@ -395,14 +152,6 @@ RESPONSE GUIDELINES:
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error("AI API error:", aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
       return new Response(
         JSON.stringify({ error: "Failed to generate response" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -410,59 +159,21 @@ RESPONSE GUIDELINES:
     }
 
     const aiData = await aiResponse.json();
-    let assistantMessage = aiData.choices?.[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+    const assistantMessage = aiData.choices?.[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
 
-    let shouldEscalate = false;
-    let escalationReason = "";
-    
-    const escalateMatch = assistantMessage.match(/\[ESCALATE:\s*(.+?)\]/i);
-    if (escalateMatch) {
-      shouldEscalate = true;
-      escalationReason = escalateMatch[1];
-      assistantMessage = assistantMessage.replace(/\[ESCALATE:\s*.+?\]/gi, "").trim();
-      assistantMessage += "\n\nI've notified our team and someone will assist you shortly.";
-    }
-
+    // Store assistant response
     await supabase.from("bot_messages").insert({
       conversation_id: currentConversationId,
       role: "assistant",
-      content: assistantMessage,
-      metadata: { escalated: shouldEscalate, shopify_used: !!shopifyContext }
+      content: assistantMessage
     });
-
-    if (shouldEscalate && bot.triage_enabled) {
-      await supabase
-        .from("bot_conversations")
-        .update({ 
-          status: "escalated",
-          escalation_reason: escalationReason
-        })
-        .eq("id", currentConversationId);
-    }
-
-    const responseHeaders = addRateLimitHeaders(
-      { ...corsHeaders, "Content-Type": "application/json" },
-      rateLimitResult,
-      RATE_LIMITS.chat
-    );
-
-    let finalMessage = assistantMessage;
-    if (outOfOfficeEnabled && outOfOfficeMessage) {
-      finalMessage = `${outOfOfficeMessage}\n\n---\n\n${assistantMessage}`;
-    }
 
     return new Response(
       JSON.stringify({
-        response: finalMessage,
-        conversation_id: currentConversationId,
-        escalated: shouldEscalate,
-        out_of_office: outOfOfficeEnabled,
-        metadata: {
-          message_id: currentConversationId,
-          timestamp: new Date().toISOString(),
-        }
+        response: assistantMessage,
+        conversation_id: currentConversationId
       }),
-      { headers: responseHeaders }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
