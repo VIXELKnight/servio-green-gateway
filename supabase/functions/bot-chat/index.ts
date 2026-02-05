@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { 
   checkRateLimit, 
   getClientIdentifier, 
@@ -21,6 +20,7 @@ interface ChatRequest {
   visitor_name?: string;
   visitor_email?: string;
 }
+
 interface ShopifyOrder {
   id: number;
   name: string;
@@ -49,10 +49,8 @@ interface ShopifyProduct {
   }>;
 }
 
-// Fetch order from Shopify
 async function fetchShopifyOrder(storeDomain: string, accessToken: string, query: string): Promise<ShopifyOrder | null> {
   try {
-    // Search by order name (e.g., #1001) or email
     const isOrderNumber = query.startsWith('#') || /^\d+$/.test(query);
     const searchQuery = isOrderNumber ? query.replace('#', '') : query;
     
@@ -67,25 +65,17 @@ async function fetchShopifyOrder(storeDomain: string, accessToken: string, query
       },
     });
 
-    if (!response.ok) {
-      console.error("Shopify order fetch error:", response.status);
-      return null;
-    }
+    if (!response.ok) return null;
 
     const data = await response.json();
     const orders = data.orders || [];
-    
-    if (orders.length === 0) return null;
-    
-    // Return the most recent order
-    return orders[0];
+    return orders.length > 0 ? orders[0] : null;
   } catch (error) {
     console.error("Error fetching Shopify order:", error);
     return null;
   }
 }
 
-// Search products from Shopify
 async function searchShopifyProducts(storeDomain: string, accessToken: string, query: string): Promise<ShopifyProduct[]> {
   try {
     const response = await fetch(
@@ -98,11 +88,7 @@ async function searchShopifyProducts(storeDomain: string, accessToken: string, q
       }
     );
 
-    if (!response.ok) {
-      console.error("Shopify product search error:", response.status);
-      return [];
-    }
-
+    if (!response.ok) return [];
     const data = await response.json();
     return data.products || [];
   } catch (error) {
@@ -111,11 +97,7 @@ async function searchShopifyProducts(storeDomain: string, accessToken: string, q
   }
 }
 
-// Detect if message is asking about order or product
 function detectShopifyIntent(message: string): { type: 'order' | 'product' | null; query: string } {
-  const lowerMessage = message.toLowerCase();
-  
-  // Order-related patterns
   const orderPatterns = [
     /order\s*#?\s*(\d+)/i,
     /order\s+status/i,
@@ -129,26 +111,16 @@ function detectShopifyIntent(message: string): { type: 'order' | 'product' | nul
   for (const pattern of orderPatterns) {
     const match = message.match(pattern);
     if (match) {
-      // Extract order number if present
       const orderNum = match[1] || '';
       return { type: 'order', query: orderNum ? `#${orderNum}` : '' };
     }
   }
   
-  // Product-related patterns
-  const productPatterns = [
-    /do you have/i,
-    /in stock/i,
-    /available/i,
-    /price of/i,
-    /how much/i,
-    /tell me about/i,
-    /product/i,
-  ];
+  const productPatterns = [/do you have/i, /in stock/i, /available/i, /price of/i, /how much/i, /tell me about/i, /product/i];
+  const lowerMessage = message.toLowerCase();
   
   for (const pattern of productPatterns) {
     if (pattern.test(lowerMessage)) {
-      // Extract potential product name (simple extraction)
       const words = message.split(/\s+/).filter(w => 
         w.length > 3 && 
         !['have', 'stock', 'available', 'price', 'much', 'tell', 'about', 'product', 'what', 'does', 'your'].includes(w.toLowerCase())
@@ -160,7 +132,6 @@ function detectShopifyIntent(message: string): { type: 'order' | 'product' | nul
   return { type: null, query: '' };
 }
 
-// Auto-tag conversation based on message content
 function detectConversationTags(message: string): string[] {
   const lowerMessage = message.toLowerCase();
   const tags: string[] = [];
@@ -186,10 +157,9 @@ function detectConversationTags(message: string): string[] {
     }
   }
   
-  return tags.slice(0, 3); // Max 3 tags
+  return tags.slice(0, 3);
 }
 
-// Format order info for AI context
 function formatOrderContext(order: ShopifyOrder): string {
   const items = order.line_items.map(item => `${item.quantity}x ${item.title}`).join(', ');
   const fulfillment = order.fulfillment_status || 'unfulfilled';
@@ -205,7 +175,6 @@ ${order.tracking_urls?.length ? `- Tracking: ${order.tracking_urls[0]}` : ''}
 `;
 }
 
-// Format product info for AI context
 function formatProductContext(products: ShopifyProduct[]): string {
   if (products.length === 0) return '';
   
@@ -219,16 +188,14 @@ ${products.map(p => {
 `;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Variables for rate limiting outside try block for access in response
   let rateLimitResult = { allowed: true, currentCount: 0, resetAt: new Date() };
 
   try {
-    // Rate limiting - use visitor_id or IP as identifier
     const clientId = getClientIdentifier(req);
     rateLimitResult = await checkRateLimit(clientId, "bot-chat", RATE_LIMITS.chat);
     
@@ -253,7 +220,6 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get channel and bot info
     const { data: channel, error: channelError } = await supabase
       .from("bot_channels")
       .select("*, bots(*)")
@@ -277,11 +243,9 @@ serve(async (req) => {
       );
     }
 
-    // Check for out-of-office auto-reply
     const outOfOfficeEnabled = (bot as any).out_of_office_enabled ?? false;
     const outOfOfficeMessage = (bot as any).out_of_office_message ?? "";
 
-    // Get Shopify integration if available
     const { data: shopifyConfig } = await supabase
       .from("bot_shopify_integrations")
       .select("*")
@@ -289,7 +253,6 @@ serve(async (req) => {
       .eq("is_active", true)
       .maybeSingle();
 
-    // Get or create conversation
     let currentConversationId = conversation_id;
     
     if (!currentConversationId) {
@@ -315,17 +278,14 @@ serve(async (req) => {
       currentConversationId = newConv.id;
     }
 
-    // Store user message
     await supabase.from("bot_messages").insert({
       conversation_id: currentConversationId,
       role: "user",
       content: message
     });
 
-    // Auto-tag the conversation based on message content
     const newTags = detectConversationTags(message);
     if (newTags.length > 0) {
-      // Get existing tags and merge with new ones
       const { data: convData } = await supabase
         .from("bot_conversations")
         .select("tags")
@@ -341,7 +301,6 @@ serve(async (req) => {
         .eq("id", currentConversationId);
     }
 
-    // Get conversation history
     const { data: history } = await supabase
       .from("bot_messages")
       .select("role, content")
@@ -349,27 +308,23 @@ serve(async (req) => {
       .order("created_at", { ascending: true })
       .limit(20);
 
-    // Get knowledge base entries for context
     const { data: knowledgeEntries } = await supabase
       .from("knowledge_base")
       .select("title, content")
       .eq("bot_id", bot.id)
       .limit(10);
 
-    // Build context from knowledge base
     let knowledgeContext = "";
     if (knowledgeEntries && knowledgeEntries.length > 0) {
       knowledgeContext = "\n\nRelevant Knowledge Base:\n" + 
         knowledgeEntries.map(e => `- ${e.title}: ${e.content}`).join("\n");
     }
 
-    // Shopify context
     let shopifyContext = "";
     if (shopifyConfig) {
       const intent = detectShopifyIntent(message);
       
       if (intent.type === 'order') {
-        // Try to find order by number or use visitor email
         const orderQuery = intent.query || visitor_email || '';
         if (orderQuery) {
           const order = await fetchShopifyOrder(
@@ -393,52 +348,28 @@ serve(async (req) => {
       }
     }
 
-    // Build enhanced system prompt for maximum AI capabilities
-    const systemPrompt = `You are an advanced AI customer service assistant with expert-level capabilities.
+    const systemPrompt = `You are an advanced AI customer service assistant.
 
-CORE IDENTITY & INSTRUCTIONS:
+CORE INSTRUCTIONS:
 ${bot.instructions}
 
-${knowledgeContext ? `KNOWLEDGE BASE (Use this information to provide accurate answers):
-${knowledgeContext}` : ''}
+${knowledgeContext ? `KNOWLEDGE BASE:\n${knowledgeContext}` : ''}
 
-${shopifyContext ? `REAL-TIME STORE DATA:
-${shopifyContext}
-
-You have live access to the customer's Shopify store. When customers ask about orders, use the exact order information above. When they ask about products, reference the real product data.
-If a customer asks about an order but no order info is shown above, ask them for their order number (e.g., #1234) to look it up.` : ''}
-
-ADVANCED CAPABILITIES:
-1. **Expert Problem Solving**: Analyze customer issues thoroughly and provide comprehensive solutions
-2. **Proactive Assistance**: Anticipate follow-up questions and address them preemptively
-3. **Personalized Responses**: Adapt your communication style to match the customer's tone
-4. **Technical Accuracy**: When providing technical information, be precise and thorough
-5. **Empathetic Communication**: Acknowledge customer frustrations and show understanding
-6. **Solution-Oriented**: Always focus on resolving the customer's issue, not just answering questions
+${shopifyContext ? `REAL-TIME STORE DATA:\n${shopifyContext}` : ''}
 
 RESPONSE GUIDELINES:
 - Be conversational, warm, and professional
-- Use clear formatting (bullet points, numbered lists) for complex information
-- Provide step-by-step instructions when explaining processes
-- Offer alternatives when the primary solution isn't available
+- Use clear formatting for complex information
+- Provide step-by-step instructions when needed
 - For complex/urgent issues requiring human assistance, end with: [ESCALATE: reason]
-- Never fabricate information - if unsure, say so and offer to connect with a human
-- Keep responses concise but complete - don't over-explain simple topics
+- Never fabricate information
+- Keep responses concise but complete`;
 
-ESCALATION TRIGGERS (automatically escalate these):
-- Billing disputes or refund requests over $100
-- Legal or compliance questions
-- Customer expressing extreme frustration or anger
-- Technical issues you cannot resolve
-- Requests for account deletion or data privacy`;
-
-    // Prepare messages for AI
     const aiMessages = [
       { role: "system", content: systemPrompt },
       ...(history || []).map(m => ({ role: m.role, content: m.content }))
     ];
 
-    // Call Lovable AI
     if (!lovableApiKey) {
       console.error("LOVABLE_API_KEY not configured");
       return new Response(
@@ -454,9 +385,9 @@ ESCALATION TRIGGERS (automatically escalate these):
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-preview", // Upgraded to next-gen model for maximum AI capabilities
+        model: "google/gemini-2.5-flash",
         messages: aiMessages,
-        max_tokens: 2000, // Increased for more comprehensive responses
+        max_tokens: 1500,
         temperature: 0.7,
       }),
     });
@@ -471,12 +402,6 @@ ESCALATION TRIGGERS (automatically escalate these):
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Service temporarily unavailable." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       
       return new Response(
         JSON.stringify({ error: "Failed to generate response" }),
@@ -487,7 +412,6 @@ ESCALATION TRIGGERS (automatically escalate these):
     const aiData = await aiResponse.json();
     let assistantMessage = aiData.choices?.[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
 
-    // Check for escalation
     let shouldEscalate = false;
     let escalationReason = "";
     
@@ -496,12 +420,9 @@ ESCALATION TRIGGERS (automatically escalate these):
       shouldEscalate = true;
       escalationReason = escalateMatch[1];
       assistantMessage = assistantMessage.replace(/\[ESCALATE:\s*.+?\]/gi, "").trim();
-      
-      // Add human handoff message
       assistantMessage += "\n\nI've notified our team and someone will assist you shortly.";
     }
 
-    // Store assistant response
     await supabase.from("bot_messages").insert({
       conversation_id: currentConversationId,
       role: "assistant",
@@ -509,7 +430,6 @@ ESCALATION TRIGGERS (automatically escalate these):
       metadata: { escalated: shouldEscalate, shopify_used: !!shopifyContext }
     });
 
-    // Update conversation status if escalated
     if (shouldEscalate && bot.triage_enabled) {
       await supabase
         .from("bot_conversations")
@@ -526,7 +446,6 @@ ESCALATION TRIGGERS (automatically escalate these):
       RATE_LIMITS.chat
     );
 
-    // Include out-of-office notice if enabled
     let finalMessage = assistantMessage;
     if (outOfOfficeEnabled && outOfOfficeMessage) {
       finalMessage = `${outOfOfficeMessage}\n\n---\n\n${assistantMessage}`;
@@ -538,7 +457,6 @@ ESCALATION TRIGGERS (automatically escalate these):
         conversation_id: currentConversationId,
         escalated: shouldEscalate,
         out_of_office: outOfOfficeEnabled,
-        // Metadata for typing indicators and read receipts
         metadata: {
           message_id: currentConversationId,
           timestamp: new Date().toISOString(),
