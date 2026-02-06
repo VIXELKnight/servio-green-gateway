@@ -155,7 +155,7 @@ export function BotManagement() {
       return;
     }
 
-    // Create default channels
+    // Create default channels (website, whatsapp, instagram, facebook)
     await supabase.from("bot_channels").insert([
       { bot_id: data.id, channel_type: "website" },
       { bot_id: data.id, channel_type: "whatsapp" },
