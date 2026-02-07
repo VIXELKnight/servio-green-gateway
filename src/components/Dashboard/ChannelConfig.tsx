@@ -94,8 +94,8 @@ export function ChannelConfigDialog({ channel, onUpdate }: ChannelConfigProps) {
         throw new Error(data.error || "Failed to start OAuth");
       }
 
-      // Redirect to Meta OAuth
-      window.location.href = data.auth_url;
+      // Open Meta OAuth in a new window to avoid iframe restrictions
+      window.open(data.auth_url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error("OAuth start error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to start connection");
