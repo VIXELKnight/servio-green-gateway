@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Bell, Mail, MessageSquare, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { SiSlack } from "@icons-pack/react-simple-icons";
+import { MessageSquareMore } from "lucide-react";
 
 interface NotificationPrefs {
   email_new_ticket: boolean;
@@ -168,7 +168,7 @@ export function NotificationSettings() {
         {/* Slack Integration */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-medium">
-            <SiSlack className="w-4 h-4 text-muted-foreground" />
+            <MessageSquareMore className="w-4 h-4 text-muted-foreground" />
             Slack Integration
           </div>
 
