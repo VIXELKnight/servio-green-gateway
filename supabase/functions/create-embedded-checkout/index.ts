@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const logStep = (step: string, details?: any) => {
@@ -29,9 +29,12 @@ serve(async (req) => {
     if (!priceId) throw new Error("Price ID is required");
     logStep("Price ID received", { priceId });
 
-    const authHeader = req.headers.get("Authorization")!;
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("No authorization header provided");
+    
     const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
+    const { data, error: userError } = await supabaseClient.auth.getUser(token);
+    if (userError) throw new Error(`Authentication error: ${userError.message}`);
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
@@ -48,7 +51,7 @@ serve(async (req) => {
       logStep("Existing customer found", { customerId });
     }
 
-    const origin = req.headers.get("origin") || "http://localhost:5173";
+    const origin = req.headers.get("origin") || "https://servio-green.lovable.app";
     
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -64,7 +67,7 @@ serve(async (req) => {
       subscription_data: {
         trial_period_days: 3,
       },
-      return_url: `${origin}/?checkout_success=true&session_id={CHECKOUT_SESSION_ID}`,
+      return_url: `${origin}/checkout-success?success=true&session_id={CHECKOUT_SESSION_ID}`,
     });
 
     logStep("Embedded checkout session created", { sessionId: session.id });
