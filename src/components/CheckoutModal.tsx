@@ -1,9 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
-import {
-  EmbeddedCheckoutProvider,
-  EmbeddedCheckout,
-} from "@stripe/react-stripe-js";
-import { stripePromise } from "@/lib/stripeClient";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -11,7 +6,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, ExternalLink } from "lucide-react";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -26,85 +22,73 @@ export default function CheckoutModal({
   priceId,
   planName,
 }: CheckoutModalProps) {
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchClientSecret = useCallback(async () => {
+  const handleCheckout = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const { data, error: fnError } = await supabase.functions.invoke(
-        "create-embedded-checkout",
-        {
-          body: { priceId },
-        }
+        "create-checkout",
+        { body: { priceId } }
       );
 
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
-      if (!data?.clientSecret) throw new Error("No client secret returned");
+      if (!data?.url) throw new Error("No checkout URL returned");
 
-      setClientSecret(data.clientSecret);
-      return data.clientSecret;
+      // Redirect to Stripe hosted checkout
+      window.open(data.url, "_blank", "noopener,noreferrer");
+      onClose();
     } catch (err: any) {
       console.error("Checkout error:", err);
-      setError(err.message || "Failed to initialize checkout");
-      throw err;
+      setError(err.message || "Failed to start checkout");
     } finally {
       setLoading(false);
     }
-  }, [priceId]);
-
-  useEffect(() => {
-    if (isOpen && !clientSecret && !loading) {
-      fetchClientSecret();
-    }
-  }, [isOpen, clientSecret, loading, fetchClientSecret]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setClientSecret(null);
-      setError(null);
-    }
-  }, [isOpen]);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
+      <DialogContent className="max-w-md">
+        <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             Subscribe to {planName}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="p-6 min-h-[500px]">
-          {loading && (
-            <div className="flex flex-col items-center justify-center h-[400px] gap-4">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="text-muted-foreground">Preparing checkout...</p>
-            </div>
-          )}
+        <div className="space-y-4 py-4">
+          <p className="text-muted-foreground text-sm">
+            You'll be redirected to a secure Stripe checkout page to complete your subscription.
+            All plans include a 3-day free trial.
+          </p>
 
           {error && (
-            <div className="flex flex-col items-center justify-center h-[400px] gap-4 text-center">
-              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                <span className="text-destructive text-xl">!</span>
-              </div>
-              <p className="text-destructive font-medium">Checkout Error</p>
-              <p className="text-muted-foreground text-sm max-w-md">{error}</p>
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-center">
+              <p className="text-destructive text-sm">{error}</p>
             </div>
           )}
 
-          {clientSecret && !loading && !error && (
-            <EmbeddedCheckoutProvider
-              stripe={stripePromise}
-              options={{ clientSecret }}
-            >
-              <EmbeddedCheckout />
-            </EmbeddedCheckoutProvider>
-          )}
+          <Button
+            onClick={handleCheckout}
+            disabled={loading}
+            className="w-full"
+            size="lg"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Preparing checkout...
+              </>
+            ) : (
+              <>
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Continue to Checkout
+              </>
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
