@@ -18,17 +18,36 @@ const ResetPassword = () => {
 
   useEffect(() => {
     // Listen for the PASSWORD_RECOVERY event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("[ResetPassword] Auth event:", event);
       if (event === "PASSWORD_RECOVERY") {
         setIsRecovery(true);
       }
+      // If we got a session via recovery token processing, allow password reset
+      if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION")) {
+        // Check URL params for recovery indicators
+        const params = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.replace("#", "?"));
+        if (params.get("type") === "recovery" || hashParams.get("type") === "recovery") {
+          setIsRecovery(true);
+        }
+      }
     });
 
-    // Also check hash for recovery token
+    // Check hash/query for recovery token before Supabase clears it
     const hash = window.location.hash;
-    if (hash && hash.includes("type=recovery")) {
+    const search = window.location.search;
+    if ((hash && hash.includes("type=recovery")) || (search && search.includes("type=recovery"))) {
       setIsRecovery(true);
     }
+
+    // Also check if there's already a session (event may have fired before mount)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        // If we're on /reset-password with a valid session, assume recovery
+        setIsRecovery(true);
+      }
+    });
 
     return () => subscription.unsubscribe();
   }, []);
