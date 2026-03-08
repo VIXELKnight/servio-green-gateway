@@ -82,11 +82,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Refresh subscription status periodically (every 30 seconds for faster updates)
+  // Refresh subscription status periodically (every 5 minutes — no need to poll frequently)
   useEffect(() => {
     if (!session) return;
     
-    const interval = setInterval(() => checkSubscription(false), 30000);
+    const interval = setInterval(() => checkSubscription(false), 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [session]);
 
