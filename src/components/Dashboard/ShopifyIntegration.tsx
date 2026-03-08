@@ -262,12 +262,16 @@ export function ShopifyIntegration({ botId }: ShopifyIntegrationProps) {
             )}
 
             <div className="text-sm text-muted-foreground">
-              <p className="font-medium mb-2">Your bot can now:</p>
+              <p className="font-medium mb-2">🚀 Your AI bot replaces Shopify's chat with:</p>
               <ul className="list-disc list-inside space-y-1">
-                <li>Look up order status by order number or email</li>
-                <li>Provide shipping and tracking information</li>
-                <li>Answer questions about product details and availability</li>
-                <li>Check inventory and pricing</li>
+                <li>🔍 Order tracking — by order number or email</li>
+                <li>📦 Real-time shipping & tracking info</li>
+                <li>🛍️ Smart product recommendations</li>
+                <li>📊 Live inventory & pricing checks</li>
+                <li>🏷️ Browse collections & categories</li>
+                <li>🛒 Cart recovery assistance</li>
+                <li>🤖 AI-powered sales conversations</li>
+                <li>🏷️ Auto-tagging of conversations</li>
               </ul>
             </div>
           </div>
