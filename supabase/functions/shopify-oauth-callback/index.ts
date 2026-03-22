@@ -28,8 +28,27 @@ serve(async (req) => {
       );
     }
 
-    // Check state is not too old (5 minutes max)
-    if (Date.now() - stateData.timestamp > 5 * 60 * 1000) {
+    // Verify state against server-stored value
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+
+    const { data: storedState } = await supabaseClient
+      .from("bot_shopify_integrations")
+      .select("pending_oauth_state, state_expires_at")
+      .eq("bot_id", stateData.bot_id)
+      .single();
+
+    if (!storedState || storedState.pending_oauth_state !== state) {
+      return new Response(
+        `<html><body><h1>Error</h1><p>Invalid state - possible CSRF attack</p></body></html>`,
+        { headers: { "Content-Type": "text/html" }, status: 400 }
+      );
+    }
+
+    if (storedState.state_expires_at && new Date(storedState.state_expires_at) < new Date()) {
       return new Response(
         `<html><body><h1>Error</h1><p>Authorization expired. Please try again.</p></body></html>`,
         { headers: { "Content-Type": "text/html" }, status: 400 }
