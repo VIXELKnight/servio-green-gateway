@@ -84,41 +84,18 @@ serve(async (req) => {
 
     console.log("[SHOPIFY-OAUTH-CALLBACK] Token exchange successful");
 
-    // Use existing supabaseClient (created above for state verification)
-
-    // Check if integration already exists
-    const { data: existing } = await supabaseClient
+    // Update the integration with the real access token and clear OAuth state
+    const { error: updateError } = await supabaseClient
       .from("bot_shopify_integrations")
-      .select("id")
-      .eq("bot_id", stateData.bot_id)
-      .single();
-
-    if (existing) {
-      // Update existing
-      const { error: updateError } = await supabaseClient
-        .from("bot_shopify_integrations")
-        .update({
-          store_domain: shop,
-          access_token: accessToken,
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id);
-
-      if (updateError) throw updateError;
-    } else {
-      // Insert new
-      const { error: insertError } = await supabaseClient
-        .from("bot_shopify_integrations")
-        .insert({
-          bot_id: stateData.bot_id,
-          store_domain: shop,
-          access_token: accessToken,
-          is_active: true,
-        });
-
-      if (insertError) throw insertError;
-    }
+      .update({
+        store_domain: shop,
+        access_token: accessToken,
+        is_active: true,
+        pending_oauth_state: null,
+        state_expires_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("bot_id", stateData.bot_id);
 
     console.log("[SHOPIFY-OAUTH-CALLBACK] Integration saved successfully");
 
