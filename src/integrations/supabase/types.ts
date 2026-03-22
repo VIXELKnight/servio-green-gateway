@@ -204,6 +204,8 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          pending_oauth_state: string | null
+          state_expires_at: string | null
           store_domain: string
           updated_at: string
         }
@@ -213,6 +215,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          pending_oauth_state?: string | null
+          state_expires_at?: string | null
           store_domain: string
           updated_at?: string
         }
@@ -222,6 +226,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          pending_oauth_state?: string | null
+          state_expires_at?: string | null
           store_domain?: string
           updated_at?: string
         }
