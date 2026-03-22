@@ -317,7 +317,10 @@ const WidgetDemo = () => {
                                   : "bg-card border border-border text-foreground rounded-bl-md shadow-sm"
                               )}
                             >
-                              {formatMessage(msg.content)}
+                              {msg.role === 'user'
+                                ? <p className="whitespace-pre-wrap">{msg.content}</p>
+                                : formatBotMessage(msg.content)
+                              }
                             </div>
                           </div>
                         ))}

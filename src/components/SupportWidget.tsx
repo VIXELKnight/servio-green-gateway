@@ -405,7 +405,10 @@ What would you like to explore?`;
                       : "bg-card border border-border text-foreground rounded-bl-md shadow-sm"
                   )}
                 >
-                  {formatMessage(message.content)}
+                  {message.role === 'user' 
+                    ? <p className="whitespace-pre-wrap">{message.content}</p>
+                    : formatBotMessage(message.content)
+                  }
                 </div>
               </div>
             ))}
