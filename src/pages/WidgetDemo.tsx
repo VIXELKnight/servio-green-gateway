@@ -127,9 +127,13 @@ const WidgetDemo = () => {
     setCurrentMessageIndex(0);
   };
 
-  const formatMessage = (content: string) => {
+  const formatBotMessage = (content: string) => {
     return content.split('\n').map((line, i) => {
-      let formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      const escaped = line
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      let formatted = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
       if (line.startsWith('• ') || line.startsWith('✅ ')) {
         return <p key={i} className="ml-2" dangerouslySetInnerHTML={{ __html: formatted }} />;
       }
