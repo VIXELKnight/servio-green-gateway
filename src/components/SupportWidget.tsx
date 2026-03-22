@@ -330,11 +330,16 @@ What would you like to explore?`;
     setIsOpen((prev) => !prev);
   }, []);
 
-  // Parse markdown-like syntax for display
-  const formatMessage = (content: string) => {
+  // Parse markdown-like syntax for display (bot messages only)
+  const formatBotMessage = (content: string) => {
     return content.split('\n').map((line, i) => {
-      // Bold text
-      let formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      // Escape HTML entities first to prevent XSS
+      const escaped = line
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      // Bold text (safe after escaping)
+      let formatted = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
       // Bullet points
       if (line.startsWith('• ') || line.startsWith('- ')) {
         return <p key={i} className="ml-2" dangerouslySetInnerHTML={{ __html: formatted }} />;
