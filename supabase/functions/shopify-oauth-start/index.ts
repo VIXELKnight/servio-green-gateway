@@ -57,6 +57,17 @@ serve(async (req) => {
       timestamp: Date.now(),
     }));
 
+    // Store state server-side for verification on callback
+    await supabaseClient
+      .from("bot_shopify_integrations")
+      .upsert({
+        bot_id,
+        store_domain: cleanDomain,
+        access_token: "pending",
+        pending_oauth_state: state,
+        state_expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      }, { onConflict: "bot_id" });
+
     // Define scopes for Shopify (full catalog as requested)
     const scopes = [
       "read_orders",

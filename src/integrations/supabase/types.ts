@@ -95,6 +95,13 @@ export type Database = {
             referencedRelation: "bots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "bot_channels_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "public_bot_info"
+            referencedColumns: ["id"]
+          },
         ]
       }
       bot_conversations: {
@@ -143,6 +150,13 @@ export type Database = {
             columns: ["bot_id"]
             isOneToOne: false
             referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_conversations_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "public_bot_info"
             referencedColumns: ["id"]
           },
         ]
@@ -204,6 +218,8 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          pending_oauth_state: string | null
+          state_expires_at: string | null
           store_domain: string
           updated_at: string
         }
@@ -213,6 +229,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          pending_oauth_state?: string | null
+          state_expires_at?: string | null
           store_domain: string
           updated_at?: string
         }
@@ -222,6 +240,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          pending_oauth_state?: string | null
+          state_expires_at?: string | null
           store_domain?: string
           updated_at?: string
         }
@@ -231,6 +251,13 @@ export type Database = {
             columns: ["bot_id"]
             isOneToOne: true
             referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_shopify_integrations_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: true
+            referencedRelation: "public_bot_info"
             referencedColumns: ["id"]
           },
         ]
@@ -392,6 +419,13 @@ export type Database = {
             columns: ["bot_id"]
             isOneToOne: false
             referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_base_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "public_bot_info"
             referencedColumns: ["id"]
           },
         ]
@@ -562,6 +596,13 @@ export type Database = {
             columns: ["bot_id"]
             isOneToOne: false
             referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_messages_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "public_bot_info"
             referencedColumns: ["id"]
           },
           {
@@ -739,7 +780,44 @@ export type Database = {
             referencedRelation: "bots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "bot_channels_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "public_bot_info"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      public_bot_info: {
+        Row: {
+          avatar_url: string | null
+          id: string | null
+          is_active: boolean | null
+          name: string | null
+          out_of_office_enabled: boolean | null
+          out_of_office_message: string | null
+          welcome_message: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          name?: string | null
+          out_of_office_enabled?: boolean | null
+          out_of_office_message?: string | null
+          welcome_message?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          name?: string | null
+          out_of_office_enabled?: boolean | null
+          out_of_office_message?: string | null
+          welcome_message?: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
