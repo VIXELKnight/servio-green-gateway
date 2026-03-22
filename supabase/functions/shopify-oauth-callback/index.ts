@@ -84,12 +84,7 @@ serve(async (req) => {
 
     console.log("[SHOPIFY-OAUTH-CALLBACK] Token exchange successful");
 
-    // Store token in database
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
-    );
+    // Use existing supabaseClient (created above for state verification)
 
     // Check if integration already exists
     const { data: existing } = await supabaseClient
